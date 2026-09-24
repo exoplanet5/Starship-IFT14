@@ -97,7 +97,7 @@ const state = {
   met: parseMet(qs.get('met')) ?? 0,
   playing: false, speed: 60, live: false,
   exag: +(qs.get('exag') || 1), follow: qs.get('follow') === '1',
-  show: { term: true, zones: true, labels: true, gt: true, fp: qs.get('fp') === '1', grid: true, lights: true },
+  show: { term: true, zones: true, labels: true, gt: true, fp: qs.get('fp') === '1', grid: true, lights: true, cities: qs.get('cities') !== '0' },
 };
 state.t0 = Math.max(A.parseHM(M.t0_min), Math.min(A.parseHM(M.t0_max), state.t0));
 const t0ms = () => A.dateT0ms(state.date, state.t0);
@@ -264,6 +264,32 @@ for (const z of data.zones) {
   const o = mkLabel('Starbase', '', '#ffffff'); o.position.set(...PAD.map((v) => v * 1.003)); o.userData.kind = 'site'; zoneGroup.add(o);
 }
 
+// ---------------------------------------------------------------- major cities in China (labels appear by zoom tier)
+// tier 1: shown from a regional view; tier 2: closer; tier 3: close zoom only (keeps clustered cities readable)
+const CHINA_CITIES = [
+  ['Beijing', 116.407, 39.904, 1], ['Shanghai', 121.474, 31.230, 1], ['Guangzhou', 113.264, 23.129, 1], ['Chengdu', 104.066, 30.573, 1],
+  ['Chongqing', 106.551, 29.563, 1], ['Wuhan', 114.305, 30.593, 1], ["Xi'an", 108.940, 34.341, 1], ['Lhasa', 91.172, 29.652, 1],
+  ['Ürümqi', 87.617, 43.825, 1], ['Harbin', 126.535, 45.803, 1], ['Kunming', 102.718, 25.038, 1], ['Hong Kong', 114.169, 22.320, 1],
+  ['Taipei', 121.565, 25.033, 1],
+  ['Tianjin', 117.201, 39.084, 2], ['Shijiazhuang', 114.515, 38.042, 2], ['Taiyuan', 112.549, 37.871, 2], ['Hohhot', 111.749, 40.842, 2],
+  ['Shenyang', 123.431, 41.805, 2], ['Changchun', 125.324, 43.817, 2], ['Nanjing', 118.797, 32.060, 2], ['Hangzhou', 120.155, 30.274, 2],
+  ['Hefei', 117.227, 31.821, 2], ['Fuzhou', 119.296, 26.074, 2], ['Nanchang', 115.858, 28.682, 2], ['Jinan', 117.120, 36.651, 2],
+  ['Zhengzhou', 113.625, 34.747, 2], ['Changsha', 112.939, 28.228, 2], ['Nanning', 108.366, 22.817, 2], ['Haikou', 110.199, 20.044, 2],
+  ['Guiyang', 106.630, 26.647, 2], ['Lanzhou', 103.834, 36.061, 2], ['Xining', 101.778, 36.617, 2], ['Yinchuan', 106.231, 38.487, 2],
+  ['Qingdao', 120.383, 36.067, 2], ['Dalian', 121.615, 38.914, 2], ['Xiamen', 118.089, 24.480, 2], ['Kashgar', 75.990, 39.470, 2],
+  ['Shenzhen', 114.058, 22.543, 3], ['Macau', 113.544, 22.199, 3],
+];
+const CITY_ZOOM = { 1: 2.9, 2: 2.05, 3: 1.45 };   // camera distance (Earth radii) below which a tier is labelled
+const cityGroup = new THREE.Group(); scene.add(cityGroup);
+{
+  const dotTex = spriteTex((g, s) => { g.fillStyle = '#c9ccd1'; g.strokeStyle = '#080a0e'; g.lineWidth = 7; g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 9, 0, Math.PI * 2); g.fill(); g.stroke(); });
+  for (const [name, lon, lat, tier] of CHINA_CITIES) {
+    const p = A.llToVec(lon, lat, 1.0008);
+    const dot = mkSprite(dotTex, 0.0085); dot.position.set(...p); cityGroup.add(dot);
+    const o = mkLabel(name, 'city'); o.position.set(...p); o.userData.tier = tier; cityGroup.add(o);
+  }
+}
+
 // ---------------------------------------------------------------- trajectory (rebuilt when altitude scale or profile changes)
 const trajGroup = new THREE.Group(); scene.add(trajGroup);
 const gtGroup = new THREE.Group(); scene.add(gtGroup);
@@ -348,7 +374,7 @@ $('branch').innerHTML = Object.entries(BR).map(([k, v]) => `<option value="${k}"
 $('branch').value = state.branch;
 $('views').innerHTML = VIEWS.map((v, i) => `<button class="btn" data-view="${i}">${v[0]}</button>`).join('');
 $('exag').value = state.exag;
-for (const [k, id] of [['term', 'o-term'], ['zones', 'o-zones'], ['labels', 'o-labels'], ['gt', 'o-gt'], ['fp', 'o-fp'], ['grid', 'o-grid'], ['lights', 'o-lights']]) {
+for (const [k, id] of [['term', 'o-term'], ['zones', 'o-zones'], ['labels', 'o-labels'], ['gt', 'o-gt'], ['fp', 'o-fp'], ['grid', 'o-grid'], ['lights', 'o-lights'], ['cities', 'o-cities']]) {
   $(id).checked = state.show[k];
   $(id).addEventListener('change', () => { state.show[k] = $(id).checked; if (k === 'zones' || k === 'grid') drawOverlay(); dirty(); });
 }
@@ -523,6 +549,14 @@ function frame(now) {
   for (const g of [zoneGroup, evGroup]) for (const o of g.children) if (o.isCSS2DObject) o.visible = state.show.labels && isVisible(o.position);
   for (const o of evGroup.children) if (o.isSprite) o.visible = true;
   shipLabel.visible = state.show.labels && isVisible(ship.position);
+  cityGroup.visible = state.show.cities;
+  if (state.show.cities) {
+    const d = camera.position.length();
+    for (const o of cityGroup.children) {
+      const vis = isVisible(o.position);
+      o.visible = o.isCSS2DObject ? vis && state.show.labels && d < CITY_ZOOM[o.userData.tier] : vis && d < 3.6;
+    }
+  }
   renderer.render(scene, camera); labels.render(scene, camera);
   if (now - (frame.ui ?? 0) > 100) { frame.ui = now; updateUI(s, sunVec); }
   requestAnimationFrame(frame);
