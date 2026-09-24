@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2">
+    <Document id="1">
+        <Style id="8">
+            <LineStyle id="10">
+                <colorMode>normal</colorMode>
+                <width>1.0</width>
+            </LineStyle>
+            <PolyStyle id="9">
+                <color>4c757575</color>
+                <colorMode>normal</colorMode>
+                <fill>1</fill>
+                <outline>1</outline>
+            </PolyStyle>
+        </Style>
+        <Style id="17">
+            <LineStyle id="19">
+                <colorMode>normal</colorMode>
+                <width>1.0</width>
+            </LineStyle>
+            <PolyStyle id="18">
+                <color>4c757575</color>
+                <colorMode>normal</colorMode>
+                <fill>1</fill>
+                <outline>1</outline>
+            </PolyStyle>
+        </Style>
+        <Placemark id="3">
+            <name>NAVAREA XII 637/2026 AREA A</name>
+            <description>NAVAREA XII 637/2026 (19)
+
+
+151951Z SEP 26
+NAVAREA XII 637/26.
+NORTH PACIFIC.
+1. HAZARDOUS OPERATIONS, SPACE DEBRIS
+   1427Z TO 1833Z DAILY 22 THRU 28 SEP
+   IN AREAS BOUND BY:
+   A. 23-55.00N 144-37.00E, 26-07.00N 151-14.00E,
+      27-41.00N 156-20.00E, 29-25.00N 165-03.00E,
+      30-26.00N 172-41.00E, 29-41.00N 176-14.00E,
+      29-13.00N 170-10.00E, 28-28.00N 164-59.00E,
+      26-39.00N 156-15.00E, 23-28.00N 144-48.00E.
+   B. 23-46.00N 156-11.00W, 24-52.00N 159-19.00W,
+      27-38.00N 167-49.00W, 29-25.00N 175-00.00W,
+      29-45.00N 176-35.00W, 29-49.00N 180-00.00W,
+      30-56.00N 180-00.00W, 31-11.00N 175-00.00W,
+      31-17.00N 171-29.00W, 30-33.00N 161-15.00W,
+      29-37.00N 155-40.00W, 28-49.00N 151-35.00W,
+      26-53.00N 145-26.00W, 26-50.00N 145-28.00W,
+      24-03.00N 154-32.00W, 23-46.00N 156-11.00W.
+2. CANCEL THIS MSG 281933Z SEP 26.
+</description>
+            <styleUrl>#8</styleUrl>
+            <Polygon id="2">
+                <outerBoundaryIs>
+                    <LinearRing id="6">
+                        <coordinates>144.61666666666667,23.916666666666668,0.0 151.23333333333332,26.116666666666667,0.0 156.33333333333334,27.683333333333334,0.0 165.05,29.416666666666668,0.0 172.68333333333334,30.433333333333334,0.0 176.23333333333332,29.683333333333334,0.0 170.16666666666666,29.216666666666665,0.0 164.98333333333332,28.466666666666665,0.0 156.25,26.65,0.0 144.8,23.466666666666665,0.0 144.61666666666667,23.916666666666668,0.0</coordinates>
+                    </LinearRing>
+                </outerBoundaryIs>
+            </Polygon>
+        </Placemark>
+        <Placemark id="12">
+            <name>NAVAREA XII 637/2026 AREA B</name>
+            <description>NAVAREA XII 637/2026 (19)
+
+
+151951Z SEP 26
+NAVAREA XII 637/26.
+NORTH PACIFIC.
+1. HAZARDOUS OPERATIONS, SPACE DEBRIS
+   1427Z TO 1833Z DAILY 22 THRU 28 SEP
+   IN AREAS BOUND BY:
+   A. 23-55.00N 144-37.00E, 26-07.00N 151-14.00E,
+      27-41.00N 156-20.00E, 29-25.00N 165-03.00E,
+      30-26.00N 172-41.00E, 29-41.00N 176-14.00E,
+      29-13.00N 170-10.00E, 28-28.00N 164-59.00E,
+      26-39.00N 156-15.00E, 23-28.00N 144-48.00E.
+   B. 23-46.00N 156-11.00W, 24-52.00N 159-19.00W,
+      27-38.00N 167-49.00W, 29-25.00N 175-00.00W,
+      29-45.00N 176-35.00W, 29-49.00N 180-00.00W,
+      30-56.00N 180-00.00W, 31-11.00N 175-00.00W,
+      31-17.00N 171-29.00W, 30-33.00N 161-15.00W,
+      29-37.00N 155-40.00W, 28-49.00N 151-35.00W,
+      26-53.00N 145-26.00W, 26-50.00N 145-28.00W,
+      24-03.00N 154-32.00W, 23-46.00N 156-11.00W.
+2. CANCEL THIS MSG 281933Z SEP 26.
+</description>
+            <styleUrl>#17</styleUrl>
+            <Polygon id="11">
+                <outerBoundaryIs>
+                    <LinearRing id="15">
+                        <coordinates>-156.18333333333334,23.766666666666666,0.0 -159.31666666666666,24.866666666666667,0.0 -167.81666666666666,27.633333333333333,0.0 -175.0,29.416666666666668,0.0 -176.58333333333334,29.75,0.0 -180.0,29.816666666666666,0.0 -180.0,30.933333333333334,0.0 -175.0,31.183333333333334,0.0 -171.48333333333332,31.283333333333335,0.0 -161.25,30.55,0.0 -155.66666666666666,29.616666666666667,0.0 -151.58333333333334,28.816666666666666,0.0 -145.43333333333334,26.883333333333333,0.0 -145.46666666666667,26.833333333333332,0.0 -154.53333333333333,24.05,0.0 -156.18333333333334,23.766666666666666,0.0</coordinates>
+                    </LinearRing>
+                </outerBoundaryIs>
+            </Polygon>
+        </Placemark>
+    </Document>
+</kml>
