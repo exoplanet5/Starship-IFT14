@@ -101,3 +101,63 @@ export function tleForT0(ref, t0ms, satnum = null) {
   const name = `STARSHIP IFT-14 T0 ${p2(d.getUTCHours())}${p2(d.getUTCMinutes())}Z ${p2(d.getUTCDate())}${mon} (zone fit)`;
   return { name, l1: l1 + tleChecksum(l1), l2: l2 + tleChecksum(l2), epoch };
 }
+
+// ---- sky-chart helpers (topocentric look angles, sidereal time, Moon, Earth shadow) ----
+const jdDays = (ms) => (ms - J2000) / 86400000;             // days from J2000.0
+export function gmstRad(ms) { return (((280.46061837 + 360.98564736629 * jdDays(ms)) % 360) + 360) % 360 * D2R; }
+
+// Sub-lunar point, ~0.3 deg (truncated ELP series, same as SatObserver-MX)
+export function moonSubpoint(ms) {
+  const T = jdDays(ms) / 36525, r = (d) => (d % 360) * D2R;
+  const Lp = r(218.316 + 481267.8813 * T), M = r(357.529 + 35999.0503 * T), Mp = r(134.963 + 477198.8676 * T);
+  const Dm = r(297.850 + 445267.1115 * T), F = r(93.272 + 483202.0175 * T);
+  const lam = Lp + D2R * (6.289 * Math.sin(Mp) - 1.274 * Math.sin(Mp - 2 * Dm) + 0.658 * Math.sin(2 * Dm)
+    + 0.214 * Math.sin(2 * Mp) - 0.186 * Math.sin(M) - 0.114 * Math.sin(2 * F));
+  const bet = D2R * (5.128 * Math.sin(F) + 0.280 * Math.sin(Mp + F) + 0.277 * Math.sin(Mp - F) + 0.173 * Math.sin(2 * Dm - F));
+  const eps = (23.439 - 0.013 * T) * D2R;
+  const ra = Math.atan2(Math.sin(lam) * Math.cos(eps) - Math.tan(bet) * Math.sin(eps), Math.cos(lam));
+  const dec = Math.asin(Math.sin(bet) * Math.cos(eps) + Math.cos(bet) * Math.sin(eps) * Math.sin(lam));
+  let lon = (ra - gmstRad(ms)) * R2D; lon = ((lon + 180) % 360 + 360) % 360 - 180;
+  return { lon, lat: dec * R2D };
+}
+
+// RA/Dec (deg) -> alt/az (deg) for a site with local sidereal time lstRad
+export function raDecToAltAz(raDeg, decDeg, lstRad, sinLat, cosLat) {
+  const H = lstRad - raDeg * D2R, sd = Math.sin(decDeg * D2R), cd = Math.cos(decDeg * D2R), cH = Math.cos(H), sH = Math.sin(H);
+  const alt = Math.asin(Math.max(-1, Math.min(1, sinLat * sd + cosLat * cd * cH)));
+  let az = Math.atan2(-cd * sH, sd * cosLat - cd * sinLat * cH) * R2D;
+  if (az < 0) az += 360;
+  return { alt: alt * R2D, az };
+}
+
+// Local frame of a site on the (spherical) model Earth: up, east, north unit vectors in the scene frame.
+export function siteFrame(lon, lat) {
+  const U = llToVec(lon, lat), l = lon * D2R, p = lat * D2R;
+  const E = [-Math.sin(l), 0, -Math.cos(l)];
+  const N = [-Math.sin(p) * Math.cos(l), Math.cos(p), Math.sin(p) * Math.sin(l)];
+  return { U, E, N };
+}
+// Look angles from a site (frame from siteFrame) to a point at unit vector u and altitude hKm.
+export function lookAngles(fr, u, hKm) {
+  const r = RE + hKm, d = [u[0] * r - fr.U[0] * RE, u[1] * r - fr.U[1] * RE, u[2] * r - fr.U[2] * RE];
+  const rng = Math.hypot(d[0], d[1], d[2]);
+  const up = (d[0] * fr.U[0] + d[1] * fr.U[1] + d[2] * fr.U[2]) / rng;
+  const e = d[0] * fr.E[0] + d[1] * fr.E[1] + d[2] * fr.E[2], n = d[0] * fr.N[0] + d[1] * fr.N[1] + d[2] * fr.N[2];
+  let az = Math.atan2(e, n) * R2D; if (az < 0) az += 360;
+  return { az, el: Math.asin(Math.max(-1, Math.min(1, up))) * R2D, rng };
+}
+// Direction (alt/az) of a body whose sub-point is `sub`, seen from a site (no parallax).
+export function altAzOfSubpoint(fr, sub) {
+  const v = llToVec(sub.lon, sub.lat);
+  const up = v[0] * fr.U[0] + v[1] * fr.U[1] + v[2] * fr.U[2];
+  let az = Math.atan2(v[0] * fr.E[0] + v[1] * fr.E[1] + v[2] * fr.E[2], v[0] * fr.N[0] + v[1] * fr.N[1] + v[2] * fr.N[2]) * R2D;
+  if (az < 0) az += 360;
+  return { alt: Math.asin(Math.max(-1, Math.min(1, up))) * R2D, az };
+}
+// Cylindrical Earth-shadow test for a spacecraft at unit vector u, altitude hKm; sunVec = unit vector to the Sun.
+export function sunlit(u, hKm, sunVec) {
+  const r = RE + hKm, x = u[0] * r, y = u[1] * r, z = u[2] * r;
+  const s = x * sunVec[0] + y * sunVec[1] + z * sunVec[2];
+  if (s > 0) return true;
+  return (x * x + y * y + z * z - s * s) > RE * RE;
+}

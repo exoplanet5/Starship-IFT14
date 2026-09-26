@@ -6,6 +6,7 @@ import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import * as A from './astro.js';
+import { createSkyChart } from './skychart.js';
 
 const $ = (id) => document.getElementById(id);
 const C = { sun: '#ffd54f', accent: '#4fc3f7', ok: '#7ad97a', warn: '#ffb84f', danger: '#ff5252', white: '#ffffff', dim: '#9aa4ae' };
@@ -281,14 +282,43 @@ const CHINA_CITIES = [
 ];
 const CITY_ZOOM = { 1: 2.9, 2: 2.05, 3: 1.45 };   // camera distance (Earth radii) below which a tier is labelled
 const cityGroup = new THREE.Group(); scene.add(cityGroup);
+const cityPos = [];
 {
   const dotTex = spriteTex((g, s) => { g.fillStyle = '#c9ccd1'; g.strokeStyle = '#080a0e'; g.lineWidth = 7; g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 9, 0, Math.PI * 2); g.fill(); g.stroke(); });
   for (const [name, lon, lat, tier] of CHINA_CITIES) {
     const p = A.llToVec(lon, lat, 1.0008);
     const dot = mkSprite(dotTex, 0.0085); dot.position.set(...p); cityGroup.add(dot);
     const o = mkLabel(name, 'city'); o.position.set(...p); o.userData.tier = tier; cityGroup.add(o);
+    Object.assign(o.element.style, { pointerEvents: 'auto', cursor: 'pointer' });
+    o.element.title = `Sky chart: Starship passes over ${name}`;
+    const c = [name, lon, lat, tier];
+    o.element.addEventListener('click', () => openSky(c));
+    cityPos.push({ c, pos: dot.position });
   }
 }
+// click (or tap) on a city dot opens its sky chart
+function cityAt(clientX, clientY) {
+  if (!state.show.cities || camera.position.length() >= 3.6) return null;
+  const r = renderer.domElement.getBoundingClientRect();
+  let best = null, bd = 14;
+  for (const k of cityPos) {
+    if (!isVisible(k.pos)) continue;
+    const v = k.pos.clone().project(camera);
+    const d = Math.hypot((v.x + 1) / 2 * r.width + r.left - clientX, (1 - v.y) / 2 * r.height + r.top - clientY);
+    if (d < bd) { bd = d; best = k.c; }
+  }
+  return best;
+}
+let downXY = null;
+renderer.domElement.addEventListener('pointerdown', (e) => { downXY = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (downXY && Math.hypot(e.clientX - downXY[0], e.clientY - downXY[1]) < 5) { const c = cityAt(e.clientX, e.clientY); if (c) openSky(c); }
+  downXY = null;
+});
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (e.buttons) return;
+  renderer.domElement.style.cursor = cityAt(e.clientX, e.clientY) ? 'pointer' : '';
+});
 
 // ---------------------------------------------------------------- trajectory (rebuilt when altitude scale or profile changes)
 const trajGroup = new THREE.Group(); scene.add(trajGroup);
@@ -353,6 +383,17 @@ function updateFootprint(u, alt) {
   fpLine.quaternion.setFromUnitVectors(Y, new THREE.Vector3(...u));
   fpLine.visible = state.show.fp && alt > 1;
 }
+
+// ---------------------------------------------------------------- sky chart pop-up for China cities
+const BURN_LABEL = { planned: 'deorbit burn', cont_npac: 'contingency burn', cont_indian: 'insertion skipped' };
+const sky = createSkyChart({
+  shipAt, branchEnd, fmtMET: A.fmtMET,
+  branchInfo: (b) => ({ switch: BR[b].switch, color: DESC_COLOR[b], burnLabel: BURN_LABEL[b] }),
+  getState: () => ({ met: Math.max(metMin, Math.min(metMax(), state.met)), t0ms: t0ms(), branch: state.branch }),
+  onJump: (met) => { setPlaying(false); setMet(met); },
+});
+let skyCity = null;
+function openSky(c) { skyCity = c[0]; sky.open(c); }
 
 // ---------------------------------------------------------------- camera views
 const VIEWS = [['Global', -40, 12, 3.6], ['Starbase', -88, 22, 1.75], ['Indian Ocean', 82, -22, 1.9],
@@ -421,6 +462,7 @@ $('link').addEventListener('click', () => {
     br: state.branch, cam: `${ll.lon.toFixed(1)},${ll.lat.toFixed(1)},${camera.position.length().toFixed(2)}` });
   if (state.exag !== 1) q.set('exag', state.exag);
   if (state.follow) q.set('follow', '1');
+  if (skyCity) q.set('sky', skyCity);
   copyText(`${location.origin}${location.pathname}?${q}`, $('link'));
 });
 document.querySelectorAll('.tog').forEach((b) => b.addEventListener('click', () => {
@@ -558,6 +600,7 @@ function frame(now) {
     }
   }
   renderer.render(scene, camera); labels.render(scene, camera);
+  if (sky.isOpen()) sky.render(); else skyCity = null;
   if (now - (frame.ui ?? 0) > 100) { frame.ui = now; updateUI(s, sunVec); }
   requestAnimationFrame(frame);
 }
@@ -578,7 +621,14 @@ onResize();
 }
 buildTrajectory();
 requestAnimationFrame((t) => { frame(t); $('loading').remove(); });
-window.__ift14 = { state, setMet, flyTo, camera };   // for debugging and automated screenshots
+{
+  const want = (qs.get('sky') || '').toLowerCase();
+  const c = CHINA_CITIES.find((x) => x[0].toLowerCase() === want);
+  if (c) openSky(c);
+}
+window.__ift14 = { state, setMet, flyTo, camera,    // for debugging and automated tests
+  cityScreen: (name) => { const k = cityPos.find((x) => x.c[0] === name); if (!k) return null; const r = renderer.domElement.getBoundingClientRect(), v = k.pos.clone().project(camera);
+    return { x: (v.x + 1) / 2 * r.width + r.left, y: (1 - v.y) / 2 * r.height + r.top }; } };
 
 // sharper day texture once the page is up, where the GPU allows 8k textures
 if (renderer.capabilities.maxTextureSize >= 8192) {

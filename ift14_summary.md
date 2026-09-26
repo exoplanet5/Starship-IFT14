@@ -134,3 +134,9 @@ descent and both contingencies), hazard zones, launch date and T0 selectors, MET
 wall-clock mode, and day, sunrise/sunset and −12° nautical-twilight terminators that follow UTC = T0 + MET.
 The panel checks every zone crossing against its published window for the chosen T0 and generates the TLE for
 that T0. Serve locally with `python3 -m http.server 8000` inside docs/.
+
+Clicking a China city (label or dot) opens a SatObserver-MX style sky chart (docs/js/skychart.js): polar alt-az
+view with every Starship pass above 1° for the chosen profile. The track over a city depends only on MET, so it
+is fixed; stars (to mag 4.6), Milky Way, Sun, Moon with phase, the twilight-tinted sky disc and the sunlit or
+eclipsed styling of the track follow UTC = T0 + MET. Each pass chip lists rise time, maximum elevation, direction
+and, for the chosen T0, how long the ship is sunlit, at least 10° up and against a sky darker than civil twilight.

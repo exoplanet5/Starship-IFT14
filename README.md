@@ -14,7 +14,7 @@ enabled: `https://exoplanet5.github.io/Starship-IFT14/`.
 
 | path | content |
 |---|---|
-| `docs/` | 3D page (three.js, vendored): trajectory, hazard zones, launch-date and T0 shift, MET playback, live clock, major Chinese cities, sunrise/sunset and −12° nautical-twilight terminators, hazard-window check, TLE for any T0 |
+| `docs/` | 3D page (three.js, vendored): trajectory, hazard zones, launch-date and T0 shift, MET playback, live clock, major Chinese cities with a pop-up sky chart of Starship passes, sunrise/sunset and −12° nautical-twilight terminators, hazard-window check, TLE for any T0 |
 | `ift14_navwarning_map.png` | global map: ground track, all hazard zones, insertion burn, contingency deorbit and reentry, planned deorbit burn and landing W of Chile |
 | `ift14_china_T0_*.png` | China/Tibet zoom at T0+08:53:00 for T0 12:15, 12:40, 13:05, 13:30Z: burn point, 15° visibility circle and swath, sunrise and nautical-twilight lines |
 | `ift14_tles.txt`, `ift14_tles_alternates.txt` | SGP4 TLEs fitted to the model orbit for each T0 (28 Sep, and 29 Sep – 4 Oct) |
@@ -58,4 +58,4 @@ python work/ift14_web_export.py --tex   # docs/data/ift14.json and web textures
 ## Credits
 
 Illustration: Mickey. Base map: NASA Blue Marble Next Generation and Black Marble (public domain).
-3D rendering: three.js (MIT, `docs/vendor/three/LICENSE`). Code: MIT, see `LICENSE`.
+3D rendering: three.js (MIT, `docs/vendor/three/LICENSE`). Star catalog and Milky Way: d3-celestial (BSD-3, `docs/data/STARDATA-LICENSE.txt`), via the SatObserver-MX sky chart. Code: MIT, see `LICENSE`.
