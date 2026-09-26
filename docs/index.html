@@ -29,7 +29,8 @@ button,select,input{font:inherit;color:inherit}
 .panel{position:fixed;top:calc(var(--bar) + 10px);max-height:calc(100% - var(--bar) - 58px);overflow:auto;
   background:rgba(23,28,34,.9);border:1px solid var(--border);border-radius:8px;padding:10px 12px 12px;z-index:20;
   box-shadow:0 10px 34px rgba(0,0,0,.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
-#ctl{left:10px;width:300px}
+#leftcol{position:fixed;left:10px;top:calc(var(--bar) + 10px);bottom:40px;width:300px;display:flex;flex-direction:column;gap:8px;z-index:20;pointer-events:none}
+#ctl{position:relative;top:auto;left:auto;max-height:none;flex:0 1 auto;min-height:0;pointer-events:auto}
 #info{right:10px;width:352px}
 h2{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:12px 0 6px;border-top:1px solid var(--border);padding-top:9px}
 h2:first-child{margin-top:0;border-top:0;padding-top:0}
@@ -59,12 +60,9 @@ th{color:var(--dim);font-weight:600;border-bottom:1px solid var(--border)}
 .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
 #status td:first-child{color:var(--dim);width:92px}
 pre#tle{margin:6px 0 4px;padding:6px 7px;background:#0c1014;border:1px solid var(--border);border-radius:4px;font-size:10.5px;line-height:1.35;overflow-x:auto;white-space:pre}
-#hud{position:fixed;left:320px;bottom:12px;z-index:15;background:rgba(10,12,16,.82);border:1px solid var(--border);border-radius:6px;
-  padding:7px 10px;font-size:12px;line-height:1.6;font-variant-numeric:tabular-nums;pointer-events:none;white-space:nowrap}
-#hud b{color:#fff}
 #credit{position:fixed;right:12px;bottom:10px;z-index:15;color:var(--fg);font-size:12px;text-shadow:0 0 3px #05080c,0 0 3px #05080c;pointer-events:none}
-#legend{position:fixed;left:320px;top:calc(var(--bar) + 10px);z-index:15;font-size:11px;color:var(--dim);background:rgba(10,12,16,.6);
-  border:1px solid var(--border);border-radius:6px;padding:5px 8px;pointer-events:none;line-height:1.7}
+#legend{flex:none;font-size:11px;color:var(--dim);background:rgba(23,28,34,.9);border:1px solid var(--border);border-radius:8px;
+  padding:7px 12px;pointer-events:none;line-height:1.7;box-shadow:0 10px 34px rgba(0,0,0,.55)}
 #legend i{display:inline-block;width:18px;height:0;border-top:2px solid;vertical-align:3px;margin-right:5px}
 #legend i.d{border-top-style:dashed}
 .lbl{font:11px/1.25 var(--mono);color:#fff;white-space:nowrap;pointer-events:none;padding-left:11px;
@@ -79,10 +77,10 @@ pre#tle{margin:6px 0 4px;padding:6px 7px;background:#0c1014;border:1px solid var
   #bar .sub{display:none}
   #clock .utcd,#clock .cst{display:none}
   .tog{display:inline-block}
-  .panel{left:8px!important;right:8px!important;width:auto!important;top:calc(var(--bar) + 6px);max-height:calc(100% - var(--bar) - 120px);display:none}
+  .panel{left:8px!important;right:8px!important;width:auto!important;top:calc(var(--bar) + 6px);max-height:calc(100% - var(--bar) - 50px);display:none}
+  #leftcol{display:contents}
+  #ctl{position:fixed;top:calc(var(--bar) + 6px);max-height:calc(100% - var(--bar) - 50px)}
   .panel.open{display:block}
-  #hud{left:8px;right:8px;bottom:34px;font-size:11px;white-space:normal;overflow:hidden}
-  #hud .hl{display:none}
   #bar{gap:8px;padding:0 8px}
   #legend{display:none}
   #credit{left:8px;right:auto;bottom:10px;font-size:11px}
@@ -96,7 +94,7 @@ pre#tle{margin:6px 0 4px;padding:6px 7px;background:#0c1014;border:1px solid var
 <body>
 <header id="bar">
   <button class="btn tog" data-panel="ctl" aria-label="Controls">☰</button>
-  <div class="title">Starship <span>IFT-14</span></div>
+  <div class="title">Starship <span>Flight 14</span></div>
   <div class="sub">first orbital flight · 3D trajectory fitted to navigational warnings</div>
   <div id="clock">
     <span class="utcd"><span class="k">UTC</span> <span id="c-date">—</span></span>
@@ -108,6 +106,7 @@ pre#tle{margin:6px 0 4px;padding:6px 7px;background:#0c1014;border:1px solid var
 </header>
 <div id="view"></div>
 
+<div id="leftcol">
 <aside id="ctl" class="panel">
   <h2>Launch</h2>
   <div class="row"><label class="k" for="date">Date</label><select id="date"></select></div>
@@ -138,6 +137,13 @@ pre#tle{margin:6px 0 4px;padding:6px 7px;background:#0c1014;border:1px solid var
   </div>
   <p class="note">Drag to rotate, scroll or pinch to zoom. Click a China city for its sky chart of Starship passes. Space plays or pauses, arrow keys step one minute.</p>
 </aside>
+<div id="legend">
+  <div><i style="color:#ffd54f"></i>ascent <i class="d" style="color:#ffd54f"></i>suborbital coast</div>
+  <div><i style="color:#4fc3f7"></i>orbit (275 km) <i style="color:#ffffff;border-top-width:1px"></i>last 50 min flown</div>
+  <div><i class="d" style="color:#7ad97a"></i>planned descent <i class="d" style="color:#ffb84f"></i><i class="d" style="color:#ff5252"></i>contingency</div>
+  <div><i style="color:#ffd54f"></i>sunrise / sunset <i style="color:#4fc3f7;opacity:.8"></i>nautical −12°</div>
+</div>
+</div>
 
 <aside id="info" class="panel">
   <h2>Status</h2>
@@ -155,13 +161,6 @@ pre#tle{margin:6px 0 4px;padding:6px 7px;background:#0c1014;border:1px solid var
   <p class="note" id="about"></p>
 </aside>
 
-<div id="legend">
-  <div><i style="color:#ffd54f"></i>ascent <i class="d" style="color:#ffd54f"></i>suborbital coast</div>
-  <div><i style="color:#4fc3f7"></i>orbit (275 km) <i style="color:#ffffff;border-top-width:1px"></i>last 50 min flown</div>
-  <div><i class="d" style="color:#7ad97a"></i>planned descent <i class="d" style="color:#ffb84f"></i><i class="d" style="color:#ff5252"></i>contingency</div>
-  <div><i style="color:#ffd54f"></i>sunrise / sunset <i style="color:#4fc3f7;opacity:.8"></i>nautical twilight −12°</div>
-</div>
-<div id="hud"></div>
 <div id="credit">Illustration: Mickey · base map NASA Blue Marble</div>
 <div id="loading"><div>Loading <b>Starship IFT-14</b> trajectory…</div><div id="loadmsg"></div></div>
 <script type="module" src="./js/app.js"></script>

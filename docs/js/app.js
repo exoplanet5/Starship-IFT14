@@ -536,9 +536,6 @@ function updateUI(s, sunVec) {
     ['Seen ≥15° within', s.alt > 1 ? `${(A.footprintDeg(s.alt, 15) * 111.195).toFixed(0)} km` : '—'],
     ['Next event', next ? `${next.label.replace(' (model)', '')} in ${A.fmtMET(next.met - state.met).slice(2)}` : '—']];
   $('status').querySelector('tbody').innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
-  $('hud').innerHTML = `<div class="hl"><b>STARSHIP IFT-14</b>  first orbital flight · i = ${M.inc.toFixed(2)}°  h = ${M.h_orbit} km  period ${M.T_nodal_min.toFixed(2)} min</div>` +
-    `<div>T0 ${state.date} ${A.fmtHMS(T0)}Z   <b>${A.fmtMET(state.met)}</b>   ${phase}</div>` +
-    `<div>${latS} ${lonS}  alt ${s.alt.toFixed(0)} km  ·  ship ${sunlit}  ·  ground ${A.lightingClass(sunAlt)}</div>`;
 }
 
 // ---------------------------------------------------------------- per-frame scene update
