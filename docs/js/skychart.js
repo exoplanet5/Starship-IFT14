@@ -28,7 +28,7 @@ const dir16 = (az) => COMPASS[Math.round(az / 22.5) % 16];
 const MW_GP_RA = 192.859, MW_GP_DEC = 27.128;    // north galactic pole (J2000)
 
 const CSS = `
-.skw{position:fixed;z-index:26;left:330px;top:58px;width:540px;height:600px;min-width:340px;min-height:380px;display:flex;flex-direction:column;
+.skw{position:fixed;z-index:26;left:330px;top:58px;width:540px;height:634px;min-width:340px;min-height:380px;display:flex;flex-direction:column;
   background:#171c22;border:1px solid #3a4654;border-radius:8px;box-shadow:0 10px 34px rgba(0,0,0,.7);resize:both;overflow:hidden}
 .skw-title{height:26px;flex:none;display:flex;align-items:center;gap:8px;padding:0 4px 0 10px;background:linear-gradient(#232b35,#1b2129);
   border-bottom:1px solid #2a323c;cursor:grab;user-select:none;font:600 12px ${MONO};color:#e8eaed}
@@ -51,10 +51,14 @@ const CSS = `
 .skc-chip.on{color:#4fc3f7;border-color:#2a7ea8;background:rgba(79,195,247,.10)}
 .skc-chip .vis{color:#ffd54f}
 .skc-none{font:11px ${MONO};color:#9aa4ae;padding:2px 4px}
+.skc-loc{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:5px 8px;border-bottom:1px solid #2a323c;background:#12171c;font:11px ${MONO};color:#9aa4ae}
+.skc-loc input{width:98px;font:11px ${MONO};font-variant-numeric:tabular-nums;color:#e8eaed;background:#0c1014;border:1px solid #2a323c;border-radius:4px;padding:2px 5px}
+.skc-loc input:focus{outline:none;border-color:#2a7ea8}
+.skc-loc .skc-err{color:#ff5252}
 @media (max-width:860px){.skw{left:6px!important;right:6px;width:auto!important;top:52px!important;height:68vh!important;resize:none}}
 `;
 
-export function createSkyChart({ shipAt, branchEnd, branchInfo, getState, onJump, fmtMET }) {
+export function createSkyChart({ shipAt, branchEnd, branchInfo, getState, onJump, fmtMET, onSite = () => {} }) {
   let stars = null, mw = null, mwVecs = null, loading = null;
   let win = null, canvas = null, ctx = null, elHud = null, elFoot = null, elTitle = null, elPasses = null, body = null;
   let cssW = 0, cssH = 0, dpr = 1;
@@ -125,6 +129,9 @@ export function createSkyChart({ shipAt, branchEnd, branchInfo, getState, onJump
     }
     win = document.createElement('div'); win.className = 'skw';
     win.innerHTML = `<div class="skw-title"><span>Sky Chart</span><span class="sub"></span><button class="skw-close" title="Close (Esc)">✕</button></div>
+      <div class="skc-loc"><label>Lat <input class="skc-lat" type="number" step="0.0001" min="-90" max="90" title="decimal degrees, north positive"></label>
+        <label>Lon <input class="skc-lon" type="number" step="0.0001" min="-180" max="180" title="decimal degrees, east positive"></label>
+        <button class="skc-tbtn skc-go" title="show the sky chart for these coordinates (Enter)">Show</button><span class="skc-err"></span></div>
       <div class="skw-body"><canvas></canvas>
         <div class="skc-toolbar"></div>
         <div class="skc-topstack"><div class="skc-hud"></div><div class="skc-hud skc-foot"></div></div></div>
@@ -134,6 +141,22 @@ export function createSkyChart({ shipAt, branchEnd, branchInfo, getState, onJump
     elHud = win.querySelector('.skc-hud'); elFoot = win.querySelector('.skc-foot'); elTitle = win.querySelector('.skw-title .sub');
     elPasses = win.querySelector('.skc-passes');
     win.querySelector('.skw-close').addEventListener('click', close);
+    // manual coordinates, 4 decimals
+    const inLat = win.querySelector('.skc-lat'), inLon = win.querySelector('.skc-lon'), err = win.querySelector('.skc-err');
+    const apply = () => {
+      let lat = parseFloat(inLat.value), lon = parseFloat(inLon.value);
+      if (lon > 180 && lon <= 360) lon -= 360;
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+        err.textContent = 'lat −90…90, lon −180…180'; return;
+      }
+      err.textContent = '';
+      setSite({ lat: +lat.toFixed(4), lon: +lon.toFixed(4), custom: true });
+    };
+    win.querySelector('.skc-go').addEventListener('click', apply);
+    for (const el of [inLat, inLon]) {
+      el.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') apply(); });
+      el.addEventListener('change', () => { const v = parseFloat(el.value); if (Number.isFinite(v)) el.value = v.toFixed(4); });
+    }
     // toolbar (SatObserver-MX layout)
     const tb = win.querySelector('.skc-toolbar'), btns = {};
     const mk = (key, label, title, fn) => { const b = document.createElement('button'); b.className = 'skc-tbtn'; b.textContent = label; b.title = title; b.addEventListener('click', fn); tb.appendChild(b); if (key) btns[key] = b; };
@@ -173,16 +196,26 @@ export function createSkyChart({ shipAt, branchEnd, branchInfo, getState, onJump
     cssW = w; cssH = h; dpr = d; canvas.width = Math.round(w * d); canvas.height = Math.round(h * d);
     canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
   }
-  async function open(c) {
-    if (!win) build();
-    city = { name: c[0], lon: c[1], lat: c[2] };
+  const fmtLL = (lat, lon) => `${Math.abs(lat).toFixed(4)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(4)}°${lon >= 0 ? 'E' : 'W'}`;
+  function setSite(site) {
+    city = { name: site.custom ? 'Custom site' : site.name, lon: site.lon, lat: site.lat, custom: !!site.custom };
     frame = A.siteFrame(city.lon, city.lat);
     passKey = ''; chipKey = ''; selIdx = 'auto';
-    elTitle.textContent = `— Starship passes over ${city.name}`;
+    elTitle.textContent = `— Starship passes over ${site.custom ? fmtLL(city.lat, city.lon) : city.name}`;
+    win.querySelector('.skc-lat').value = city.lat.toFixed(4);
+    win.querySelector('.skc-lon').value = city.lon.toFixed(4);
+    win.querySelector('.skc-err').textContent = '';
+    onSite({ ...city });
+    render();
+  }
+  // site: {name, lat, lon} for a city, or {lat, lon, custom: true}; focus = put the cursor in the latitude box
+  async function open(site, focus = false) {
+    if (!win) build();
     win.style.display = 'flex';
     resize();
     await load();
-    render();
+    setSite(site);
+    if (focus) { const i = win.querySelector('.skc-lat'); i.focus(); i.select(); }
   }
   function close() { if (win) win.style.display = 'none'; }
   function isOpen() { return !!win && win.style.display !== 'none'; }
@@ -438,9 +471,9 @@ export function createSkyChart({ shipAt, branchEnd, branchInfo, getState, onJump
     elHud.textContent = txt;
     const lt = new Date(utc + 8 * 3600000);
     const p2 = (n) => String(n).padStart(2, '0');
-    elFoot.textContent = `${city.name}  ${Math.abs(city.lat).toFixed(2)}°${city.lat >= 0 ? 'N' : 'S'} ${Math.abs(city.lon).toFixed(2)}°${city.lon >= 0 ? 'E' : 'W'}  ·  ` +
+    elFoot.textContent = `${city.name}  ${fmtLL(city.lat, city.lon)}  ·  ` +
       `CST ${p2(lt.getUTCHours())}:${p2(lt.getUTCMinutes())}:${p2(lt.getUTCSeconds())}  ·  ${fmtMET(st.met)}`;
   }
 
-  return { open, close, isOpen, render };
+  return { open, close, isOpen, render, site: () => (city ? { ...city } : null) };
 }

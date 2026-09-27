@@ -23,7 +23,10 @@ button,select,input{font:inherit;color:inherit}
 #clock{margin-left:auto;display:flex;gap:14px;font-variant-numeric:tabular-nums;white-space:nowrap}
 #clock .k{color:var(--dim)}
 #clock .met{color:var(--accent);font-weight:600}
-.tog{display:none}
+.tog{display:inline-block}
+.tog.on{color:var(--accent);border-color:var(--accent-dim);background:rgba(79,195,247,.10)}
+body:not(.ctl-open) #leftcol{display:none}
+body:not(.info-open) #info{display:none}
 #view{position:fixed;inset:var(--bar) 0 0 0}
 #view canvas{display:block;outline:none}
 .panel{position:fixed;top:calc(var(--bar) + 10px);max-height:calc(100% - var(--bar) - 58px);overflow:auto;
@@ -76,11 +79,10 @@ pre#tle{margin:6px 0 4px;padding:6px 7px;background:#0c1014;border:1px solid var
   :root{--bar:46px}
   #bar .sub{display:none}
   #clock .utcd,#clock .cst{display:none}
-  .tog{display:inline-block}
   .panel{left:8px!important;right:8px!important;width:auto!important;top:calc(var(--bar) + 6px);max-height:calc(100% - var(--bar) - 50px);display:none}
   #leftcol{display:contents}
   #ctl{position:fixed;top:calc(var(--bar) + 6px);max-height:calc(100% - var(--bar) - 50px)}
-  .panel.open{display:block}
+  body.ctl-open #ctl,body.info-open #info{display:block}
   #bar{gap:8px;padding:0 8px}
   #legend{display:none}
   #credit{left:8px;right:auto;bottom:10px;font-size:11px}
@@ -93,7 +95,7 @@ pre#tle{margin:6px 0 4px;padding:6px 7px;background:#0c1014;border:1px solid var
 </head>
 <body>
 <header id="bar">
-  <button class="btn tog" data-panel="ctl" aria-label="Controls">☰</button>
+  <button class="btn tog" data-panel="ctl" aria-label="Controls" title="Show or hide the controls">☰</button>
   <div class="title">Starship <span>Flight 14</span></div>
   <div class="sub">first orbital flight · 3D trajectory fitted to navigational warnings</div>
   <div id="clock">
@@ -102,7 +104,7 @@ pre#tle{margin:6px 0 4px;padding:6px 7px;background:#0c1014;border:1px solid var
     <span class="met" id="c-met">T+00:00:00</span>
     <span class="cst"><span class="k">CST</span> <span id="c-cst">—</span></span>
   </div>
-  <button class="btn tog" data-panel="info" aria-label="Info">ⓘ</button>
+  <button class="btn tog" data-panel="info" aria-label="Info" title="Show or hide the status panel">ⓘ</button>
 </header>
 <div id="view"></div>
 
@@ -123,6 +125,7 @@ pre#tle{margin:6px 0 4px;padding:6px 7px;background:#0c1014;border:1px solid var
     <button class="btn" id="back">−1 min</button><button class="btn" id="fwd">+1 min</button><button class="btn" id="link" title="Copy a link to this view">Copy link</button></div>
   <h2>View</h2>
   <div class="btns" id="views"></div>
+  <div class="btns" style="margin-top:5px"><button class="btn" id="skybtn" title="Sky chart for any latitude and longitude">✶ Sky chart at coordinates…</button></div>
   <div class="row"><label class="k" for="exag">Altitude</label><input id="exag" type="range" min="1" max="10" step="0.5" value="1"><span class="v" id="exagv">×1</span></div>
   <div>
     <label class="chk"><input type="checkbox" id="o-follow">Follow ship</label>
@@ -135,7 +138,7 @@ pre#tle{margin:6px 0 4px;padding:6px 7px;background:#0c1014;border:1px solid var
     <label class="chk"><input type="checkbox" id="o-cities" checked>China cities</label>
     <label class="chk"><input type="checkbox" id="o-lights" checked>City lights</label>
   </div>
-  <p class="note">Drag to rotate, scroll or pinch to zoom. Click a China city for its sky chart of Starship passes. Space plays or pauses, arrow keys step one minute.</p>
+  <p class="note">Drag to rotate, scroll or pinch to zoom. Click a China city, or use the coordinates button, for a sky chart of Starship passes. Space plays or pauses, arrow keys step one minute.</p>
 </aside>
 <div id="legend">
   <div><i style="color:#ffd54f"></i>ascent <i class="d" style="color:#ffd54f"></i>suborbital coast</div>

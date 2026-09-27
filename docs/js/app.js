@@ -277,7 +277,7 @@ const CHINA_CITIES = [
   ['Hefei', 117.227, 31.821, 2], ['Fuzhou', 119.296, 26.074, 2], ['Nanchang', 115.858, 28.682, 2], ['Jinan', 117.120, 36.651, 2],
   ['Zhengzhou', 113.625, 34.747, 2], ['Changsha', 112.939, 28.228, 2], ['Nanning', 108.366, 22.817, 2], ['Haikou', 110.199, 20.044, 2],
   ['Guiyang', 106.630, 26.647, 2], ['Lanzhou', 103.834, 36.061, 2], ['Xining', 101.778, 36.617, 2], ['Yinchuan', 106.231, 38.487, 2],
-  ['Qingdao', 120.383, 36.067, 2], ['Dalian', 121.615, 38.914, 2], ['Xiamen', 118.089, 24.480, 2], ['Kashgar', 75.990, 39.470, 2],
+  ['Qingdao', 120.383, 36.067, 2], ['Dalian', 121.615, 38.914, 2], ['Xiamen', 118.089, 24.480, 2], ['Ganzhou', 114.934, 25.831, 2], ['Kashgar', 75.990, 39.470, 2],
   ['Shenzhen', 114.058, 22.543, 3], ['Macau', 113.544, 22.199, 3],
 ];
 const CITY_ZOOM = { 1: 2.9, 2: 2.05, 3: 1.45 };   // camera distance (Earth radii) below which a tier is labelled
@@ -391,9 +391,25 @@ const sky = createSkyChart({
   branchInfo: (b) => ({ switch: BR[b].switch, color: DESC_COLOR[b], burnLabel: BURN_LABEL[b] }),
   getState: () => ({ met: Math.max(metMin, Math.min(metMax(), state.met)), t0ms: t0ms(), branch: state.branch }),
   onJump: (met) => { setPlaying(false); setMet(met); },
+  onSite: (site) => {
+    skySite = site;
+    if (site.custom) {
+      const p = A.llToVec(site.lon, site.lat, 1.0012);
+      siteMark.position.set(...p); siteLabel.position.set(...p);
+      siteLabel.element.textContent = `${Math.abs(site.lat).toFixed(4)}°${site.lat >= 0 ? 'N' : 'S'} ${Math.abs(site.lon).toFixed(4)}°${site.lon >= 0 ? 'E' : 'W'}`;
+    }
+  },
 });
-let skyCity = null;
-function openSky(c) { skyCity = c[0]; sky.open(c); }
+let skySite = null;                       // site shown in the sky chart: {name, lat, lon, custom}
+function openSky(c, focus = false) { sky.open(Array.isArray(c) ? { name: c[0], lon: c[1], lat: c[2] } : c, focus); }
+const siteMark = mkSprite(spriteTex((g, s) => {
+  g.strokeStyle = '#080a0e'; g.lineWidth = 9; g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 10, 0, Math.PI * 2); g.stroke();
+  g.strokeStyle = C.sun; g.lineWidth = 5; g.stroke(); g.fillStyle = C.sun; g.beginPath(); g.arc(s / 2, s / 2, 5, 0, Math.PI * 2); g.fill();
+}), 0.02);
+const siteLabel = mkLabel('', 'city', C.sun);
+siteMark.visible = siteLabel.visible = false; scene.add(siteMark, siteLabel);
+// coordinates button: start from the site already shown (a city becomes an editable custom site), else Ganzhou
+$('skybtn').addEventListener('click', () => openSky(skySite ? { lat: skySite.lat, lon: skySite.lon, custom: true } : { lat: 25.8310, lon: 114.9340, custom: true }, true));
 
 // ---------------------------------------------------------------- camera views
 const VIEWS = [['Global', -40, 12, 3.6], ['Starbase', -88, 22, 1.75], ['Indian Ocean', 82, -22, 1.9],
@@ -462,14 +478,24 @@ $('link').addEventListener('click', () => {
     br: state.branch, cam: `${ll.lon.toFixed(1)},${ll.lat.toFixed(1)},${camera.position.length().toFixed(2)}` });
   if (state.exag !== 1) q.set('exag', state.exag);
   if (state.follow) q.set('follow', '1');
-  if (skyCity) q.set('sky', skyCity);
+  if (skySite) q.set('sky', skySite.custom ? `${skySite.lat.toFixed(4)},${skySite.lon.toFixed(4)}` : skySite.name);
   copyText(`${location.origin}${location.pathname}?${q}`, $('link'));
 });
+const narrow = matchMedia('(max-width: 860px)');
+let panels = { ctl: !narrow.matches, info: !narrow.matches };
+try { const f = JSON.parse(localStorage.getItem('ift14-panels')); if (f && !narrow.matches) panels = { ctl: !!f.ctl, info: !!f.info }; } catch { /* storage unavailable */ }
+function applyPanels() {
+  document.body.classList.toggle('ctl-open', panels.ctl); document.body.classList.toggle('info-open', panels.info);
+  document.querySelectorAll('.tog').forEach((b) => b.classList.toggle('on', panels[b.dataset.panel]));
+}
 document.querySelectorAll('.tog').forEach((b) => b.addEventListener('click', () => {
-  const p = $(b.dataset.panel), open = !p.classList.contains('open');
-  document.querySelectorAll('.panel').forEach((x) => x.classList.remove('open'));
-  p.classList.toggle('open', open);
+  const k = b.dataset.panel, open = !panels[k];
+  if (narrow.matches) panels = { ctl: false, info: false };
+  panels[k] = open; applyPanels();
+  if (!narrow.matches) try { localStorage.setItem('ift14-panels', JSON.stringify(panels)); } catch { /* ignore */ }
 }));
+narrow.addEventListener('change', () => { panels = { ctl: !narrow.matches, info: !narrow.matches }; applyPanels(); });
+applyPanels();
 renderer.domElement.addEventListener('pointerdown', () => { if (state.follow) setFollow(false); fly = null; });
 addEventListener('keydown', (e) => {
   const tag = document.activeElement?.tagName;
@@ -597,7 +623,9 @@ function frame(now) {
     }
   }
   renderer.render(scene, camera); labels.render(scene, camera);
-  if (sky.isOpen()) sky.render(); else skyCity = null;
+  if (sky.isOpen()) sky.render(); else skySite = null;
+  siteMark.visible = !!(skySite && skySite.custom) && isVisible(siteMark.position);
+  siteLabel.visible = siteMark.visible && state.show.labels;
   if (now - (frame.ui ?? 0) > 100) { frame.ui = now; updateUI(s, sunVec); }
   requestAnimationFrame(frame);
 }
@@ -621,7 +649,9 @@ requestAnimationFrame((t) => { frame(t); $('loading').remove(); });
 {
   const want = (qs.get('sky') || '').toLowerCase();
   const c = CHINA_CITIES.find((x) => x[0].toLowerCase() === want);
+  const ll = want.split(',').map(Number);
   if (c) openSky(c);
+  else if (ll.length === 2 && ll.every(Number.isFinite) && Math.abs(ll[0]) <= 90 && Math.abs(ll[1]) <= 180) openSky({ lat: ll[0], lon: ll[1], custom: true });
 }
 window.__ift14 = { state, setMet, flyTo, camera,    // for debugging and automated tests
   cityScreen: (name) => { const k = cityPos.find((x) => x.c[0] === name); if (!k) return null; const r = renderer.domElement.getBoundingClientRect(), v = k.pos.clone().project(camera);
