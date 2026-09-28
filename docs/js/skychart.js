@@ -76,8 +76,8 @@ export function createSkyChart({ shipAt, branchEnd, branchInfo, getState, onJump
     const end = branchEnd(branch), out = [];
     let cur = null, prev = null;
     for (let met = 0; met <= end + 1e-6; met += STEP) {
-      const s = shipAt(met, branch), la = A.lookAngles(frame, s.u, s.alt);
-      const p = { met, az: la.az, el: la.el, rng: la.rng, u: s.u, alt: s.alt };
+      const s = shipAt(met, branch), la = A.lookAngles(frame, s.uc, s.alt);
+      const p = { met, az: la.az, el: la.el, rng: la.rng, u: s.uc, alt: s.alt };
       if (p.el > RISE_EL) {
         if (!cur) {
           cur = { pts: [] };
@@ -99,8 +99,8 @@ export function createSkyChart({ shipAt, branchEnd, branchInfo, getState, onJump
     return out.filter((q) => q.los - q.aos >= 10);
   }
   function lerpPt(a, b, f, branch) {
-    const met = a.met + (b.met - a.met) * f, s = shipAt(met, branch), la = A.lookAngles(frame, s.u, s.alt);
-    return { met, az: la.az, el: Math.max(la.el, RISE_EL), rng: la.rng, u: s.u, alt: s.alt };
+    const met = a.met + (b.met - a.met) * f, s = shipAt(met, branch), la = A.lookAngles(frame, s.uc, s.alt);
+    return { met, az: la.az, el: Math.max(la.el, RISE_EL), rng: la.rng, u: s.uc, alt: s.alt };
   }
   // seconds of a pass with the ship sunlit, >= 10 deg up, and the site sky at least nautically dark (sun < -6)
   function visibleSeconds(q, t0ms) {
@@ -399,7 +399,7 @@ export function createSkyChart({ shipAt, branchEnd, branchInfo, getState, onJump
     const free = (x, y, w, h) => !boxes.some(([bx, by, bw, bh]) => x < bx + bw && bx < x + w && y < by + bh && by < y + h);
     ctx.font = '9px ' + MONO;
     for (let t = Math.ceil(q.aos / 60) * 60; t < q.los; t += stepMin * 60) {
-      const s = shipAt(t, st.branch), la = A.lookAngles(frame, s.u, s.alt);
+      const s = shipAt(t, st.branch), la = A.lookAngles(frame, s.uc, s.alt);
       if (la.el < RISE_EL) continue;
       const xy = project(la.az, la.el, m);
       ctx.beginPath(); ctx.arc(xy.x, xy.y, 2.2, 0, Math.PI * 2); ctx.fillStyle = t > bi.switch ? bi.color : COL_ORBIT; ctx.fill();
@@ -410,7 +410,7 @@ export function createSkyChart({ shipAt, branchEnd, branchInfo, getState, onJump
     }
     // deorbit burn inside this pass
     if (bi.switch >= q.aos && bi.switch <= q.los) {
-      const s = shipAt(bi.switch, st.branch), la = A.lookAngles(frame, s.u, s.alt), xy = project(la.az, la.el, m);
+      const s = shipAt(bi.switch, st.branch), la = A.lookAngles(frame, s.uc, s.alt), xy = project(la.az, la.el, m);
       ctx.save(); ctx.translate(xy.x, xy.y); ctx.rotate(Math.PI / 4);
       ctx.fillStyle = bi.color; ctx.strokeStyle = '#080a0e'; ctx.lineWidth = 1; ctx.fillRect(-3.5, -3.5, 7, 7); ctx.strokeRect(-3.5, -3.5, 7, 7); ctx.restore();
       ctx.font = '10px ' + MONO; haloText(`${bi.burnLabel} ${fmtMET(bi.switch)}`, xy.x + 7, xy.y + 9, bi.color);
@@ -453,17 +453,17 @@ export function createSkyChart({ shipAt, branchEnd, branchInfo, getState, onJump
     const pi = currentPass(st.met);
     if (pi >= 0) drawPass(m, passes[pi], st);
     // ship now
-    const s = shipAt(st.met, st.branch), la = A.lookAngles(frame, s.u, s.alt);
-    const lit = A.sunlit(s.u, s.alt, A.llToVec(sunSub.lon, sunSub.lat));
+    const s = shipAt(st.met, st.branch), la = A.lookAngles(frame, s.uc, s.alt);
+    const litF = A.litFraction(s.uc, s.alt, A.llToVec(sunSub.lon, sunSub.lat));
     if (la.el > 0 && st.met > 0) {
       const p = project(la.az, la.el, m);
-      ctx.fillStyle = COL_ORBIT; ctx.strokeStyle = 'rgba(8,10,14,0.9)'; ctx.lineWidth = 1;
+      ctx.fillStyle = hexA(COL_ORBIT, 0.35 + 0.65 * litF); ctx.strokeStyle = 'rgba(8,10,14,0.9)'; ctx.lineWidth = 1;
       ctx.fillRect(p.x - 3, p.y - 3, 6, 6); ctx.strokeRect(p.x - 3, p.y - 3, 6, 6);
       ctx.beginPath(); ctx.arc(p.x, p.y, 6.5, 0, Math.PI * 2); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.4; ctx.stroke();
       ctx.font = '11px ' + MONO; haloText('Starship', p.x + 8, p.y, '#ffffff');
     }
     // HUD
-    let txt = `Starship  AZ ${la.az.toFixed(1)}°  EL ${la.el.toFixed(1)}°  RNG ${la.rng.toFixed(0)} km  |  ${lit ? '● sunlit' : '✕ eclipsed'} · site sun ${sun.alt.toFixed(1)}° (${STAGE(sun.alt)})`;
+    let txt = `Starship  AZ ${la.az.toFixed(1)}°  EL ${la.el.toFixed(1)}°  RNG ${la.rng.toFixed(0)} km  |  ${litF >= 1 ? '● sunlit' : litF <= 0 ? '✕ eclipsed' : `◐ penumbra ${(litF * 100).toFixed(0)}% lit`} · site sun ${sun.alt.toFixed(1)}° (${STAGE(sun.alt)})`;
     if (la.el <= 0 && pi >= 0) {
       const q = passes[pi];
       txt += st.met < q.aos ? `  ·  next pass ${fmtMET(q.aos)} → ${fmtMET(q.los).slice(2)}, max ${q.maxEl.toFixed(0)}°` : `  ·  pass ${fmtMET(q.aos)} → ${fmtMET(q.los).slice(2)} done`;

@@ -26,17 +26,19 @@ const M = data.meta;
 class Track {
   constructor(seg) {
     this.met0 = seg.met0; this.dt = seg.dt; this.n = seg.lon.length;
-    this.u = new Float32Array(this.n * 3); this.alt = Float32Array.from(seg.alt);
-    for (let i = 0; i < this.n; i++) this.u.set(A.llToVec(seg.lon[i], seg.lat[i]), 3 * i);
+    this.u = new Float32Array(this.n * 3); this.uc = new Float32Array(this.n * 3); this.alt = Float32Array.from(seg.alt);
+    for (let i = 0; i < this.n; i++) {
+      this.u.set(A.llToVec(seg.lon[i], seg.lat[i]), 3 * i);      // on the map: geodetic latitude on the textured globe
+      this.uc.set(A.geocUnit(seg.lon[i], seg.lat[i]), 3 * i);    // in space: true geocentric direction (look angles, shadow)
+    }
   }
   get end() { return this.met0 + (this.n - 1) * this.dt; }
   metAt(i) { return this.met0 + i * this.dt; }
   sample(met) {
     let f = Math.max(0, Math.min(this.n - 1, (met - this.met0) / this.dt));
-    const i = Math.min(this.n - 2, Math.floor(f)), w = f - i, a = 3 * i, b = a + 3, u = this.u;
-    const x = u[a] + (u[b] - u[a]) * w, y = u[a + 1] + (u[b + 1] - u[a + 1]) * w, z = u[a + 2] + (u[b + 2] - u[a + 2]) * w;
-    const r = Math.hypot(x, y, z);
-    return { u: [x / r, y / r, z / r], alt: this.alt[i] + (this.alt[i + 1] - this.alt[i]) * w };
+    const i = Math.min(this.n - 2, Math.floor(f)), w = f - i, a = 3 * i, b = a + 3;
+    const lerp = (u) => { const x = u[a] + (u[b] - u[a]) * w, y = u[a + 1] + (u[b + 1] - u[a + 1]) * w, z = u[a + 2] + (u[b + 2] - u[a + 2]) * w, r = Math.hypot(x, y, z); return [x / r, y / r, z / r]; };
+    return { u: lerp(this.u), uc: lerp(this.uc), alt: this.alt[i] + (this.alt[i + 1] - this.alt[i]) * w };
   }
   // flat xyz array for points i0..i1 (inclusive); ground = surface projection
   pts(exag, i0 = 0, i1 = this.n - 1, ground = false) {
@@ -51,7 +53,7 @@ class Track {
 const T = Object.fromEntries(Object.entries(data.tracks).map(([k, v]) => [k, new Track(v)]));
 const NOM = T.nominal;
 const iAt = (met) => Math.round(met / NOM.dt);
-const PAD = A.llToVec(M.starbase[0], M.starbase[1]);
+const PAD = A.llToVec(M.starbase[0], M.starbase[1]), PAD_C = A.geocUnit(M.starbase[0], M.starbase[1]);
 const BR = data.branches;
 const EI = { planned: 34132, cont_npac: null, cont_indian: null };
 for (const e of data.events) {
@@ -62,7 +64,7 @@ const branchEnd = (b) => T[BR[b].descent].end;
 
 function shipAt(met, b) {
   const B = BR[b];
-  if (met <= 0) return { u: PAD, alt: 0 };
+  if (met <= 0) return { u: PAD, uc: PAD_C, alt: 0 };
   if (met <= B.switch) return NOM.sample(met);
   return T[B.descent].sample(met);
 }
@@ -362,13 +364,43 @@ function buildTrajectory() {
 }
 
 // ship marker, drop line, 15-degree visibility circle
-const ship = mkSprite(spriteTex((g, s) => {
+// Starship cartoon, nose up: stainless body, black heat-shield side, forward and aft flaps, engine skirt
+function drawStarship(g, s) {
+  const cx = s / 2, w = s * 0.17, top = s * 0.07, bodyTop = s * 0.27, bot = s * 0.88, L = cx - w / 2, R = cx + w / 2;
+  g.lineJoin = 'round'; g.strokeStyle = '#080a0e'; g.lineWidth = s / 64;
+  const flap = (pts) => { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.fill(); g.stroke(); };
+  g.fillStyle = '#4a515a';
+  for (const sgn of [-1, 1]) {
+    const e = sgn < 0 ? L : R, o = sgn * s * 0.1, fo = sgn * s * 0.065;
+    flap([[e, bot - s * 0.2], [e + o, bot - s * 0.11], [e + o, bot + s * 0.02], [e, bot - s * 0.02]]);          // aft flap
+    flap([[e, bodyTop + s * 0.01], [e + fo, bodyTop + s * 0.06], [e + fo, bodyTop + s * 0.15], [e, bodyTop + s * 0.17]]); // forward flap
+  }
+  const body = new Path2D();
+  body.moveTo(L, bot); body.lineTo(L, bodyTop);
+  body.quadraticCurveTo(L, top + s * 0.04, cx, top); body.quadraticCurveTo(R, top + s * 0.04, R, bodyTop);
+  body.lineTo(R, bot); body.closePath();
+  const gr = g.createLinearGradient(L, 0, R, 0);
+  gr.addColorStop(0, '#8e97a1'); gr.addColorStop(0.38, '#f4f6f8'); gr.addColorStop(0.62, '#cfd4da'); gr.addColorStop(1, '#7c858f');
+  g.fillStyle = gr; g.fill(body);
+  g.save(); g.clip(body); g.fillStyle = '#1b1f25'; g.fillRect(L, top, w * 0.4, bot - top); g.restore();     // heat shield
+  g.stroke(body);
+  g.fillStyle = '#2a2f36'; g.fillRect(L + w * 0.12, bot, w * 0.76, s * 0.045); g.strokeRect(L + w * 0.12, bot, w * 0.76, s * 0.045);
+}
+const shipTex = spriteTex(drawStarship, 128);
+const ship = mkSprite(shipTex, 0.062);
+ship.material.depthTest = true; ship.renderOrder = 6; scene.add(ship);
+const glint = mkSprite(spriteTex((g, s) => {                  // sunlight glint: only when the ship is lit
   const c = s / 2, gr = g.createRadialGradient(c, c, 0, c, c, c);
-  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.22, 'rgba(255,255,255,1)'); gr.addColorStop(0.3, 'rgba(79,195,247,.9)'); gr.addColorStop(1, 'rgba(79,195,247,0)');
+  gr.addColorStop(0, 'rgba(255,250,235,0.95)'); gr.addColorStop(0.18, 'rgba(255,236,190,0.55)'); gr.addColorStop(0.45, 'rgba(120,200,255,0.18)'); gr.addColorStop(1, 'rgba(120,200,255,0)');
   g.fillStyle = gr; g.fillRect(0, 0, s, s);
-}), 0.042);
-ship.material.depthTest = true; ship.renderOrder = 5; scene.add(ship);
+}), 0.075);
+Object.assign(glint.material, { blending: THREE.AdditiveBlending, depthWrite: false }); glint.renderOrder = 5; scene.add(glint);
+{ // legend icon: the same cartoon laid horizontally, nose to the right
+  const icon = document.getElementById('shipicon');
+  if (icon) { const cv = document.createElement('canvas'); cv.width = 64; cv.height = 24; const g = cv.getContext('2d');
+    g.translate(32, 12); g.rotate(Math.PI / 2); g.drawImage(shipTex.image, -30, -30, 60, 60); icon.src = cv.toDataURL(); } }
 const shipLabel = mkLabel('Starship', '', '#ffffff'); shipLabel.userData.kind = 'ship'; scene.add(shipLabel);
+shipLabel.center.set(0.5, 1); Object.assign(shipLabel.element.style, { paddingLeft: '0', paddingBottom: '30px' });   // label above the cartoon
 const dropGeom = new THREE.BufferGeometry(); dropGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
 const drop = new THREE.Line(dropGeom, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55 }));
 scene.add(drop);
@@ -547,11 +579,11 @@ function updateUI(s, sunVec) {
     const m = +tr.dataset.met; tr.classList.toggle('past', m <= state.met); tr.classList.toggle('next', next && m === next.met);
   });
   // status
-  const ll = A.vecToLL(...s.u), sunAlt = A.sunAltDeg(sunVec, s.u), lim = A.shadowLimitDeg(s.alt);
-  const sunlit = s.alt > 1 ? (sunAlt > lim ? 'in sunlight' : 'in Earth shadow') : (sunAlt > 0 ? 'in sunlight' : 'in darkness');
+  const ll = A.vecToLL(...s.u), sunAlt = A.sunAltDeg(sunVec, s.u), litF = A.litFraction(s.uc, s.alt, sunVec);
+  const sunlit = s.alt > 1 ? (litF >= 1 ? 'in sunlight' : litF <= 0 ? 'in Earth shadow' : `in penumbra, ${(litF * 100).toFixed(0)}% lit`) : (sunAlt > 0 ? 'in sunlight' : 'in darkness');
   const a = shipAt(state.met - 5, b), c = shipAt(state.met + 5, b);
-  const pa = a.u.map((v) => v * (RE + a.alt)), pc = c.u.map((v) => v * (RE + c.alt));
-  const vef = pc.map((v, i) => (v - pa[i]) / 10), w = 7.2921159e-5, r = s.u.map((v) => v * (RE + s.alt));
+  const pa = a.uc.map((v) => v * (RE + a.alt)), pc = c.uc.map((v) => v * (RE + c.alt));
+  const vef = pc.map((v, i) => (v - pa[i]) / 10), w = 7.2921159e-5, r = s.uc.map((v) => v * (RE + s.alt));
   const vin = [vef[0] + w * r[2], vef[1], vef[2] - w * r[0]];
   const speed = state.met > 0 && state.met < metMax() ? `${Math.hypot(...vin).toFixed(2)} km/s inertial` : '—';
   const latS = `${Math.abs(ll.lat).toFixed(2)}°${ll.lat >= 0 ? 'N' : 'S'}`, lonS = `${Math.abs(ll.lon).toFixed(2)}°${ll.lon >= 0 ? 'E' : 'W'}`;
@@ -580,7 +612,18 @@ function frame(now) {
   sunSprite.position.set(...sunVec.map((v) => v * 1.004)); sunSprite.visible = isVisible(sunSprite.position);
   // ship
   const s = shipAt(metC, state.branch), rr = 1 + s.alt * state.exag / RE;
-  ship.position.set(...s.u.map((v) => v * rr)); shipLabel.position.copy(ship.position);
+  ship.position.set(...s.u.map((v) => v * rr)); shipLabel.position.copy(ship.position); glint.position.copy(ship.position);
+  {
+    const lit = s.alt > 1 ? A.litFraction(s.uc, s.alt, sunVec) : (A.sunAltDeg(sunVec, s.u) > 0 ? 1 : 0);
+    ship.material.color.setScalar(0.38 + 0.62 * lit); ship.material.opacity = 0.5 + 0.5 * lit;
+    glint.material.opacity = lit * (0.8 + 0.12 * Math.sin(now / 260)); glint.visible = lit > 0.01;
+    // point the nose along the motion on screen (radially outward on the pad or after landing)
+    const ahead = metC > 0 && metC < metMax() ? shipAt(Math.min(metMax(), metC + 5), state.branch) : null;
+    const p1 = ahead ? new THREE.Vector3(...ahead.u.map((v) => v * (1 + ahead.alt * state.exag / RE))) : ship.position.clone().multiplyScalar(1.02);
+    const a0 = ship.position.clone().project(camera), a1 = p1.project(camera);
+    const dx = (a1.x - a0.x) * view.clientWidth, dy = (a1.y - a0.y) * view.clientHeight;
+    if (Math.hypot(dx, dy) > 1e-3) ship.material.rotation = Math.atan2(dy, dx) - Math.PI / 2;
+  }
   const dp = dropGeom.attributes.position; dp.setXYZ(0, ...s.u.map((v) => v * rr)); dp.setXYZ(1, ...s.u.map((v) => v * 1.001)); dp.needsUpdate = true;
   updateFootprint(s.u, s.alt);
   if (trail) {

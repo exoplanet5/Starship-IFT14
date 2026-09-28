@@ -130,16 +130,24 @@ export function raDecToAltAz(raDeg, decDeg, lstRad, sinLat, cosLat) {
   return { alt: alt * R2D, az };
 }
 
-// Local frame of a site on the (spherical) model Earth: up, east, north unit vectors in the scene frame.
-export function siteFrame(lon, lat) {
-  const U = llToVec(lon, lat), l = lon * D2R, p = lat * D2R;
+// WGS-84 ellipsoid (scene frame: y = polar axis, x = lon 0, z = lon 90W)
+export const WGS84_E2 = 0.00669437999014, WGS84_B = RE * Math.sqrt(1 - 0.00669437999014);
+export const geocLat = (latDeg) => Math.atan((1 - WGS84_E2) * Math.tan(latDeg * D2R)) * R2D;   // surface point: geodetic -> geocentric
+export const geocUnit = (lon, latDeg) => llToVec(lon, geocLat(latDeg));                         // true direction of a track point
+// Observer on the WGS-84 ellipsoid at geodetic lat/lon and height hKm: position P (km) and the local
+// east / north / up unit vectors, "up" being the ellipsoid normal (the astronomical vertical).
+export function siteFrame(lon, lat, hKm = 0) {
+  const l = lon * D2R, p = lat * D2R, Nr = RE / Math.sqrt(1 - WGS84_E2 * Math.sin(p) ** 2);
+  const P = [(Nr + hKm) * Math.cos(p) * Math.cos(l), (Nr * (1 - WGS84_E2) + hKm) * Math.sin(p), -(Nr + hKm) * Math.cos(p) * Math.sin(l)];
+  const U = llToVec(lon, lat);
   const E = [-Math.sin(l), 0, -Math.cos(l)];
   const N = [-Math.sin(p) * Math.cos(l), Math.cos(p), Math.sin(p) * Math.sin(l)];
-  return { U, E, N };
+  return { P, U, E, N };
 }
-// Look angles from a site (frame from siteFrame) to a point at unit vector u and altitude hKm.
+// Look angles from a site (frame from siteFrame) to a spacecraft at geocentric unit vector uc, altitude hKm
+// above the model's reference radius (the fit's orbit radius is RE + h).
 export function lookAngles(fr, u, hKm) {
-  const r = RE + hKm, d = [u[0] * r - fr.U[0] * RE, u[1] * r - fr.U[1] * RE, u[2] * r - fr.U[2] * RE];
+  const r = RE + hKm, d = [u[0] * r - fr.P[0], u[1] * r - fr.P[1], u[2] * r - fr.P[2]];
   const rng = Math.hypot(d[0], d[1], d[2]);
   const up = (d[0] * fr.U[0] + d[1] * fr.U[1] + d[2] * fr.U[2]) / rng;
   const e = d[0] * fr.E[0] + d[1] * fr.E[1] + d[2] * fr.E[2], n = d[0] * fr.N[0] + d[1] * fr.N[1] + d[2] * fr.N[2];
@@ -154,10 +162,22 @@ export function altAzOfSubpoint(fr, sub) {
   if (az < 0) az += 360;
   return { alt: Math.asin(Math.max(-1, Math.min(1, up))) * R2D, az };
 }
-// Cylindrical Earth-shadow test for a spacecraft at unit vector u, altitude hKm; sunVec = unit vector to the Sun.
-export function sunlit(u, hKm, sunVec) {
-  const r = RE + hKm, x = u[0] * r, y = u[1] * r, z = u[2] * r;
-  const s = x * sunVec[0] + y * sunVec[1] + z * sunVec[2];
-  if (s > 0) return true;
-  return (x * x + y * y + z * z - s * s) > RE * RE;
+// Fraction of the solar disc visible from a spacecraft at geocentric unit vector u, altitude hKm:
+// 1 = full sunlight, 0 = umbra, in between = penumbra. The WGS-84 ellipsoid is handled by stretching the
+// polar axis by a/b (the ellipsoid becomes a sphere of radius a); the Sun is a disc of radius 0.2666 deg
+// and the Earth's limb is treated as straight across it. No atmosphere.
+const SUN_R = 0.2666 * D2R;
+export function litFraction(u, hKm, sunVec) {
+  const k = RE / WGS84_B, r = RE + hKm;
+  const x = u[0] * r, y = u[1] * r * k, z = u[2] * r;
+  let sx = sunVec[0], sy = sunVec[1] * k, sz = sunVec[2]; const sn = Math.hypot(sx, sy, sz); sx /= sn; sy /= sn; sz /= sn;
+  const d = Math.hypot(x, y, z);
+  const rhoE = Math.asin(Math.min(1, RE / d));                                         // Earth's angular radius
+  const theta = Math.acos(Math.max(-1, Math.min(1, -(x * sx + y * sy + z * sz) / d))); // Sun to Earth-centre angle
+  const g = theta - rhoE;                                                              // Sun centre above the limb
+  if (g >= SUN_R) return 1;
+  if (g <= -SUN_R) return 0;
+  const seg = SUN_R * SUN_R * Math.acos(g / SUN_R) - g * Math.sqrt(SUN_R * SUN_R - g * g); // disc part below the limb
+  return 1 - seg / (Math.PI * SUN_R * SUN_R);
 }
+export const sunlit = (u, hKm, sunVec) => litFraction(u, hKm, sunVec) >= 0.5;

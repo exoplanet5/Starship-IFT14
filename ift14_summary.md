@@ -106,6 +106,13 @@ of latitude; RAAN advances at the sidereal rate, 6.27° per 25 min of launch del
 elements moved by less than 0.01°, positions by at most 0.54 km. Placeholder catalog numbers 99990–99993
 (28 Sep) and 99960–99983 (alternates 29 Sep – 4 Oct, four T0 each), designator 26999A, bstar 0.
 
+The TLE inclination (30.51°) and the model's (30.49°) describe the same orbital plane. The model value is the plane
+itself. The TLE carries SGP4 mean elements: SGP4 adds J2 short-period terms that make the osculating inclination
+oscillate by ±0.019° twice per revolution (30.494°–30.531°, mean 30.512°), so the fitted mean value sits 0.019°
+above the plane. Propagated, the TLE reaches the same maximum latitude as the model (30.492°), its best-fit plane is
+30.493°, and it stays within 0.31 km cross-track of the model; the 8.5 km fit rms is almost entirely along-track and
+radial, where the model ignores the J2 short-period motion.
+
 ```
 STARSHIP IFT-14 T0 1215Z 28SEP (zone fit)
 1 99990U 26999A   26271.52810185  .00000000  00000-0  00000+0 0    01
@@ -134,6 +141,10 @@ descent and both contingencies), hazard zones, launch date and T0 selectors, MET
 wall-clock mode, and day, sunrise/sunset and −12° nautical-twilight terminators that follow UTC = T0 + MET.
 The panel checks every zone crossing against its published window for the chosen T0 and generates the TLE for
 that T0. Serve locally with `python3 -m http.server 8000` inside docs/.
+Sky charts use a WGS-84 observer (ellipsoid position, geodetic vertical) and the ship's true geocentric position;
+checked against a rigorous WGS-84 calculation the look angles agree to 0.007° in elevation and 0.02° in azimuth
+(the earlier spherical shortcut was off by up to 0.7°). Sunlight uses an umbra/penumbra model on the WGS-84 Earth;
+the ship marker is a Starship cartoon that glints in sunlight and dims in Earth's shadow.
 
 Clicking a China city (label or dot) opens a SatObserver-MX style sky chart (docs/js/skychart.js): polar alt-az
 view with every Starship pass above 1° for the chosen profile. The track over a city depends only on MET, so it
