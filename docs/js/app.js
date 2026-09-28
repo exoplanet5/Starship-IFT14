@@ -387,20 +387,20 @@ function drawStarship(g, s) {
   g.fillStyle = '#2a2f36'; g.fillRect(L + w * 0.12, bot, w * 0.76, s * 0.045); g.strokeRect(L + w * 0.12, bot, w * 0.76, s * 0.045);
 }
 const shipTex = spriteTex(drawStarship, 128);
-const ship = mkSprite(shipTex, 0.062);
+const ship = mkSprite(shipTex, 0.038);
 ship.material.depthTest = true; ship.renderOrder = 6; scene.add(ship);
 const glint = mkSprite(spriteTex((g, s) => {                  // sunlight glint: only when the ship is lit
   const c = s / 2, gr = g.createRadialGradient(c, c, 0, c, c, c);
   gr.addColorStop(0, 'rgba(255,250,235,0.95)'); gr.addColorStop(0.18, 'rgba(255,236,190,0.55)'); gr.addColorStop(0.45, 'rgba(120,200,255,0.18)'); gr.addColorStop(1, 'rgba(120,200,255,0)');
   g.fillStyle = gr; g.fillRect(0, 0, s, s);
-}), 0.075);
+}), 0.046);
 Object.assign(glint.material, { blending: THREE.AdditiveBlending, depthWrite: false }); glint.renderOrder = 5; scene.add(glint);
 { // legend icon: the same cartoon laid horizontally, nose to the right
   const icon = document.getElementById('shipicon');
   if (icon) { const cv = document.createElement('canvas'); cv.width = 64; cv.height = 24; const g = cv.getContext('2d');
     g.translate(32, 12); g.rotate(Math.PI / 2); g.drawImage(shipTex.image, -30, -30, 60, 60); icon.src = cv.toDataURL(); } }
 const shipLabel = mkLabel('Starship', '', '#ffffff'); shipLabel.userData.kind = 'ship'; scene.add(shipLabel);
-shipLabel.center.set(0.5, 1); Object.assign(shipLabel.element.style, { paddingLeft: '0', paddingBottom: '30px' });   // label above the cartoon
+shipLabel.center.set(0.5, 1); Object.assign(shipLabel.element.style, { paddingLeft: '0', paddingBottom: '19px' });   // label above the cartoon
 const dropGeom = new THREE.BufferGeometry(); dropGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
 const drop = new THREE.Line(dropGeom, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55 }));
 scene.add(drop);
