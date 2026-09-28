@@ -26,7 +26,9 @@ def footprint(lon0, lat0, h, elev=ELEV_MIN, n=121):
     return np.degrees(lon), np.degrees(lat), np.degrees(lam)
 
 
-for hms in F.WINDOW_T0:
+# launch times: command line (e.g. `python ift14_china.py 12:46`), else the four standard window times
+T0_LIST = [(a if a.count(':') == 2 else a + ':00') for a in sys.argv[1:]] or F.WINDOW_T0
+for hms in T0_LIST:
     t0 = np.datetime64(f'2026-09-28T{hms}'); tb = t0 + np.timedelta64(int(round(T_MAP*60)), 's'); tburn = t0 + np.timedelta64(int(round(T_BURN*60)), 's')
     tbs = str(tb)[11:19]; cst = str(tb + np.timedelta64(8, 'h'))[11:19]; bs = str(tburn)[11:19]; bcst = str(tburn + np.timedelta64(8, 'h'))[11:19]
     fig, ax = new_figure(16, 9.9, '2D Map', f'—  Starship IFT-14  ·  deorbit burn over Tibet {fmt(T_BURN)}–{fmt(F.MET_BURN3_END)[2:]}  ·  T0 {hms}Z',
