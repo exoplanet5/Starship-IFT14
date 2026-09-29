@@ -33,13 +33,20 @@ longitude and every event time and zone crossing below is unchanged to the secon
 - T+00:25:28–00:25:47 orbit insertion burn (19 s) at apogee (12.5°S 24.6°W, mid South Atlantic) → 275 km circular.
 - T+00:34:18–01:04:50 Starlink V3 deployment (official timeline, flight-timeline.txt).
 - Six revolutions; deorbit burn T+08:52:18–08:52:29 (official), subpoint 30.0°N 80.0°E over western Tibet.
-- Official entry T+09:28:52, landing T+09:50:30. Descent model calibrated to these: retrograde 49 m/s →
-  perigee 108 km, entry interface (EI, 120 km) 36.6 min after the burn at flight-path angle −0.38°, then a
-  21.6 min lifting glide (speed 7.5 → 0.3 km/s, ~5050 km). With these official numbers the entry point lands
-  at the west end of the Chile zone and the touchdown ~75 % along it, and the same model applied to the
-  North Pacific contingency puts entry at the west end of that zone and splashdown in its eastern part.
-  The skipped-insertion case re-enters on the coast ellipse (EI 19.6 min after apogee, γ = −1.6°) with a
-  16 min, ~3750 km glide as on Flights 4–11.
+- Descents (work/ift14_descents.py): every profile uses the same 3-DOF aerodynamic entry model and the Starship
+  calibrated on Flight 14 (hypersonic angle of attack 55.1°, L/D 0.70, ballistic coefficient 331 kg/m², ~114 t).
+  - Planned: 11 s burn at T+08:52:18 with the lift vector up; Δv solved for the official landing T+09:50:30 gives
+    68.8 m/s (Flight 14 needed 69.6 m/s for the same 11 s burn), perigee 43.7 km. It lands at 29.9°S 86.9°W, inside
+    the Chile zone, and goes subsonic at T+09:48:08 (official 09:48:07). At the official "entry" T+09:28:52 the
+    model is at 85.7 km (Flight 14: 81.5 km at the reported entry), so SpaceX's "entry" marks heating onset near
+    80–86 km, not 120 km.
+  - North Pacific contingency: identical to Flight 14 as flown (same burn time T+02:12:00).
+  - Indian Ocean contingency: no insertion burn; the ship coasts from SECO on the −99 km-perigee ellipse with the
+    Starlinks still aboard (+50 t assumed, ballistic coefficient 475 kg/m²) and steers with a 66° bank and one
+    reversal to the middle of the Indian Ocean zone.
+  The earlier kinematic model used a 49 m/s burn (entry defined as 120 km at the official entry time) and a
+  prescribed glide. A 49 m/s burn only lowers perigee to 108 km: in the 3-DOF model the ship then skims the upper
+  atmosphere and does not land on the planned timeline, so that number was not physically consistent.
 
 ## Plane fit
 | parameter | value |
@@ -63,14 +70,14 @@ a plane slightly northeast of the pad, reached by yaw steering during the ascent
 | SECO | T+00:08:11 | 12:23:11Z | 20.8°N 81.8°W |
 | insertion burn | T+00:25:28 | 12:40:28Z | 12.5°S 24.6°W |
 | Starlink V3 deploy start / complete | T+00:34:18 / 01:04:50 | 12:49:18 / 13:19:50Z | 26°S 8°E / 2°N 126°E |
-| #1 no-insertion entry | T+00:45:03 | 13:00:03Z | 29.8°S 54.1°E |
-| #1 Indian Ocean zone | T+00:50:28–01:00:58 | 13:05:28–13:15:58Z | splash 20.4°S 85.8°E at T+01:01:03 |
+| #1 no-insertion entry (120 km) | T+00:44:29 | 12:59:29Z | 30.0°S 52.0°E |
+| #1 Indian Ocean zone | T+00:49:18–00:57:43 | 13:04:18–13:12:43Z | splash 21.2°S 85.4°E at T+00:57:43 |
 | #2 contingency deorbit burn | T+02:12:00 | 14:27:00Z | 30.7°S 19.0°E (S Atlantic off the Cape); as flown |
-| #2 entry | T+02:48:34 | 15:03:34Z | 26.5°N 153.8°E |
-| #2 North Pacific zone | T+02:46:30–03:10:10 | 15:01:30–15:25:10Z | splash 29.4°N 160.1°W at T+03:10:12 (model glide) |
+| #2 entry (120 km) | T+02:38:23 | 14:53:23Z | 9.6°N 116.0°E |
+| #2 North Pacific zone | T+02:46:20–03:08:30 | 15:01:20–15:23:30Z | splash 25.5°N 155.4°W at T+03:08:30 (as flown) |
 | planned deorbit burn | T+08:52:18–08:52:29 | 21:07:18Z | 30.0°N 80.0°E (Tibet) |
-| entry | T+09:28:52 | 21:43:52Z | 21.7°S 143.5°W (west end of zone) |
-| Chile zone | T+09:27:28–09:50:28 | 21:42:28–22:05:28Z | landing 30.7°S 98.9°W at T+09:50:30 |
+| entry (120 km) / official entry | T+09:18:52 / 09:28:52 | 21:33:52 / 21:43:52Z | 2.8°S 178.3°W / 85.7 km altitude |
+| Chile zone | T+09:27:28–09:50:30 | 21:42:28–22:05:30Z | landing 29.9°S 86.9°W at T+09:50:30 |
 
 Ascending nodes: T+01:04:00 (123.3°E), 02:33:50 (100.6°E), 04:03:30 (77.4°E), 05:33:20 (54.7°E), 07:03:00 (31.5°E), 08:32:50 (8.8°E).
 
@@ -82,16 +89,16 @@ Ascending nodes: T+01:04:00 (123.3°E), 02:33:50 (100.6°E), 04:03:30 (77.4°E),
   "nearly 10 h", after six full revolutions.
 - Indian Ocean opens 12:23Z = T+00:08 = SECO: from SECO the ship is on a ballistic path into the Indian Ocean
   unless the insertion burn is made at T+00:25:28. The zone closes 14:47Z; with the 13:30Z window close the latest
-  crossing is 14:20:28–14:30:58Z, so every launch time in the 75 min window is covered (with the earlier 2 h window
+  crossing is 14:19:18–14:27:43Z, so every launch time in the 75 min window is covered (with the earlier 2 h window
   it would not have been).
 - Zone closing times carry roughly one extra revolution of margin.
 - The east end of the Indian zone is cut by a 393 km radius arc centred on Cocos (Keeling) Islands, not a target.
 
 | zone | crossing, T0 12:15Z | crossing, T0 13:30Z | published |
 |---|---|---|---|
-| Indian Ocean | 13:05:28–13:15:58Z | 14:20:28–14:30:58Z | 1223–1447Z |
-| North Pacific | 15:01:30–15:25:10Z | 16:16:30–16:40:10Z | 1427–1833Z |
-| W of Chile | 21:42:28–22:05:28Z | 22:57:28–23:20:28Z | 2107–0108Z |
+| Indian Ocean | 13:04:18–13:12:43Z | 14:19:18–14:27:43Z | 1223–1447Z |
+| North Pacific | 15:01:20–15:23:30Z | 16:16:20–16:38:30Z | 1427–1833Z |
+| W of Chile | 21:42:28–22:05:30Z | 22:57:28–23:20:30Z | 2107–0108Z |
 | North Pacific, as flown (T0 12:48:59Z) | 15:35:19–15:57:29Z | | 1427–1833Z |
 
 ## Deorbit burn seen from China (ift14_china_T0_*.png, work/ift14_china.py)
@@ -107,7 +114,7 @@ against a dark or twilight sky.
 | T0 | burn UTC / CST | sun at burn point | ship sunlit from | ground in nautical twilight from | ground sunrise from |
 |---|---|---|---|---|---|
 | 12:15Z | 21:07:18Z / 05:07:18 | −43.6° | T+08:59:38, 111.8°E | T+09:00:48, 116.7°E |  |
-| 12:40Z | 21:32:18Z / 05:32:18 | −38.8° | T+08:58:08, 105.4°E | T+08:59:18, 110.4°E |  |
+| 12:40Z | 21:32:18Z / 05:32:18 | −38.8° | T+08:58:08, 105.3°E | T+08:59:18, 110.3°E |  |
 | 12:46Z | 21:38:18Z / 05:38:18 | −37.6° | T+08:57:48, 103.9°E | T+08:58:58, 108.9°E |  |
 | 13:05Z | 21:57:18Z / 05:57:18 | −33.8° | T+08:56:48, 99.6°E | T+08:57:58, 104.6°E |  |
 | 13:30Z | 22:22:18Z / 06:22:18 | −28.6° | T+08:55:28, 93.8°E | T+08:56:38, 98.9°E |  |
@@ -179,7 +186,7 @@ answer, miss 0 km and 0 s:
 
 | quantity | solved value | implication |
 |---|---|---|
-| deorbit Δv | 69.6 m/s | one Raptor at about 30 % thrust for 11 s on a 130 t ship |
+| deorbit Δv | 69.6 m/s | one Raptor at about 30 % thrust for 11 s on a 130 t ship; orbit after the burn 275.0 × 41.1 km (e 0.018), lowest point without atmosphere 38.7 km above WGS-84 at 30.7°N 171.1°W |
 | hypersonic angle of attack | 55.1° (L/D 0.70) | |
 | ballistic coefficient | 331 kg/m² hypersonic, 472 subsonic | about 114 t at entry (9 × 52 m planform), belly-flop C_D ≈ 0.5, 313 km/h near sea level |
 | bank | 19.4° toward the south, no reversal | the target lies 395 km south of the ground track, in the southern lobe of the North Pacific zone |
@@ -191,7 +198,7 @@ answer, miss 0 km and 0 s:
 | reported "entry" | T+02:46:52 | 81.5 km, 25,770 km/h, entering the North Pacific zone |
 | peak heating | T+02:53:25 | 72 km, Mach 22.4 |
 | maximum deceleration | T+03:04:35 | 1.7 g |
-| transonic / subsonic | T+03:05:55 / 03:06:08 | |
+| transonic / subsonic | T+03:05:55 / 03:06:07 | |
 | landing burn | T+03:08:11 | |
 | splashdown | T+03:08:30 | 25.4993°N 155.4275°W |
 
@@ -202,7 +209,8 @@ The ascent is still the nominal one; the extended burn after the engine loss is 
 
 ## 3D page (docs/, exported by work/ift14_web_export.py)
 Three.js globe in the Earth-fixed frame with four profiles: planned (6 orbits, Chile), Flight 14 as flown (2 orbits,
-aerodynamic entry to the reported splashdown), and the two model contingencies. Only the selected profile's path is
+aerodynamic entry to the reported splashdown), the North Pacific contingency (the same path, any launch time) and the
+Indian Ocean contingency. Only the selected profile's path is
 drawn. Choosing the flown profile sets 28 Sep, T0 12:48:59Z (also a preset button). Hazard zones, launch date and T0
 selectors, MET scrubbing and playback, a live wall-clock mode, and day, sunrise/sunset and −12° nautical-twilight
 terminators that follow UTC = T0 + MET. The panel checks every zone crossing against its published window for the

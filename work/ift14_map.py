@@ -5,7 +5,8 @@ import ift14_fit as F
 from ift14_style import *
 from matplotlib.patches import Polygon as MPoly
 
-pl, Z, T0, EV, D1, D2, D3 = F.pl, F.Z, F.T0, F.EV, F.D1, F.D2, F.D3
+import ift14_descents as DS                       # physical 3-DOF descents (same vehicle and burn model for all)
+pl, Z, T0, EV, D1, D2, D3 = F.pl, F.Z, F.T0, DS.EV, DS.D1, DS.D2, DS.D3
 fmt, utc = F.fmt, F.utc
 def rng(w): return f'{fmt(w[0])}–{fmt(w[1])[2:]}'
 
@@ -16,7 +17,7 @@ draw_base(ax, (-180, 180, -90, 90), T0)
 # zones
 ZSTYLE = {'launchA': (SUN, 'NAVAREA IV 922/26  launch hazard  1215–1414Z'), 'launchB': (SUN, None),
           'indian': (DANGER, 'HYDROPAC 2751/26  Indian Ocean  1223–1447Z\ncontingency reentry (no insertion burn)'),
-          'npac': (WARN, 'NAVAREA XII 657/26 · HYDROPAC 2761/26  North Pacific  1427–1833Z\ncontingency reentry (orbit 2)'),
+          'npac': (WARN, 'NAVAREA XII 657/26 · HYDROPAC 2761/26  North Pacific  1427–1833Z\ncontingency reentry (orbit 2), flown 28 Sep'),
           'chile': (OK, 'HYDROPAC 2750/26  South Pacific W of Chile  2107–0108Z\nplanned reentry & splashdown (after 6 orbits)')}
 for k, (col, lab) in ZSTYLE.items():
     pts = np.array(Z[k]['pts'])
@@ -56,13 +57,13 @@ sq(ax, *D1['ei'], DANGER, f'entry  {fmt(EV["ei1"])}', dx=0, dy=1.4, ha='center',
 star(ax, *D1['splash'], DANGER, ms=11, hollow=True)
 label(ax, 100.5, -17.5, f'no insertion burn →\nentry {fmt(EV["ei1"])}\nsplash {fmt(EV["sp1"])}', color='#ffffff')
 # contingency 2
-sq(ax, *D2['burn'], WARN, f'contingency deorbit burn\n{fmt(EV["burn2"])}', dx=2.0, dy=-1.0, va='top')
+sq(ax, *D2['burn'], WARN, f'contingency deorbit burn (flown)\n{fmt(EV["burn2"])}', dx=2.0, dy=-1.0, va='top')
 sq(ax, *D2['ei'], WARN, None, hollow=True)
 star(ax, *D2['splash'], WARN, ms=11, hollow=True)
 label(ax, D2['ei'][0]-1.5, D2['ei'][1]-1.2, f'contingency entry {fmt(EV["ei2"])}\nsplash {fmt(EV["sp2"])}', color='#ffffff', ha='right', va='top')
 # planned
 sq(ax, *D3['burn'], OK, f'planned deorbit burn (11 s)\n{fmt(EV["burn3"])}', dx=2.0, dy=1.0, va='bottom')
-sq(ax, *D3['ei'], OK, f'entry\n{fmt(EV["ei3"])}', dx=-2.0, dy=-1.0, ha='right', va='top', hollow=True)
+sq(ax, *D3['ei'], OK, f'entry (120 km)\n{fmt(EV["ei3"])}', dx=2.0, dy=-1.0, ha='left', va='top', hollow=True)
 star(ax, *D3['splash'], OK, ms=17)
 label(ax, D3['splash'][0]+2.5, D3['splash'][1]+2.2, f'landing W of Chile\n{fmt(EV["sp3"])}', va='bottom')
 
@@ -72,7 +73,7 @@ hud(ax, [('STARSHIP IFT-14  first orbital flight', FG, True),
          ('alternates daily 29 Sep–4 Oct, same window', FGDIM, False),
          (f'SECO {fmt(EV["seco"])}   insertion burn {fmt(EV["ins"])} (19 s)', SUN, False),
          (f'Indian Ocean   no insertion burn        entry {fmt(EV["ei1"])}  splash {fmt(EV["sp1"])}', DANGER, False),
-         (f'North Pacific  contingency burn {fmt(EV["burn2"])}  entry {fmt(EV["ei2"])}  splash {fmt(EV["sp2"])}', WARN, False),
+         (f'North Pacific  deorbit burn {fmt(EV["burn2"])}      entry {fmt(EV["ei2"])}  splash {fmt(EV["sp2"])}  (flown)', WARN, False),
          (f'W of Chile     deorbit burn {fmt(EV["burn3"])}      entry {fmt(EV["ei3"])}  landing {fmt(EV["sp3"])}', OK, False),
          ('solid = powered flight / orbit   dashed = coast / descent   □ entry interface   ★ splashdown', FGDIM, False)], width=0.47, lh=0.026)
 credit(ax)

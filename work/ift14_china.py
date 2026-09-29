@@ -3,7 +3,8 @@ import sys, numpy as np
 sys.path.insert(0, '/Users/mickey/sda/starship-ITF-14/work')
 import ift14_fit as F
 from ift14_style import *
-pl, EV, D3 = F.pl, F.EV, F.D3
+import ift14_descents as DS
+pl, EV, D3 = F.pl, DS.EV, DS.D3
 fmt = F.fmt
 T_BURN = F.MET_BURN3
 T_MAP = 8*60 + 53.0     # map clock T0+08:53:00 (user request)

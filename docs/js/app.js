@@ -55,7 +55,7 @@ const NOM = T.nominal;
 const iAt = (met) => Math.round(met / NOM.dt);
 const PAD = A.llToVec(M.starbase[0], M.starbase[1]), PAD_P = A.geodeticToScene(M.starbase[0], M.starbase[1], 0);
 const BR = data.branches;                         // profiles: switch (leaves the orbit), descent track, ei, lb, landing text
-const branchEnd = (b) => T[BR[b].descent].end;
+const branchEnd = (b) => BR[b].splash ?? T[BR[b].descent].end;   // timeline ends exactly at splashdown
 
 function shipAt(met, b) {
   const B = BR[b];
@@ -69,6 +69,7 @@ function phaseOf(met, b) {
   if (met < M.met_seco) return 'ascent (powered)';
   if (B.kind === 'suborbital' && met >= B.switch) {
     if (met < B.ei) return 'suborbital coast, no insertion burn';
+    if (B.lb && met >= B.lb && met < end) return 'landing burn';
     return met < end ? 'entry and glide' : B.landing;
   }
   if (met < M.met_ins) return 'suborbital coast';
@@ -540,7 +541,11 @@ addEventListener('keydown', (e) => {
 $('about').innerHTML = [...M.notes,
   'Hazard zones: NAVAREA IV 922/26 (launch), HYDROPAC 2751/26 (Indian Ocean), NAVAREA XII 657/26 = HYDROPAC 2761/26 (North Pacific), HYDROPAC 2750/26 (South Pacific W of Chile), all daily 28 Sep – 4 Oct 2026.',
   'Event times are the official flight timeline; positions of contingency events come from the model.',
-  `Model: i = ${M.inc.toFixed(2)}°, h = ${M.h_orbit} km, nodal period ${M.T_nodal_min.toFixed(2)} min, deorbit Δv ${M.dv_deorbit_ms} m/s.`].map((t) => `<p>${t}</p>`).join('');
+  `Model orbit: i = ${M.inc.toFixed(2)}°, radius ${(M.RE + M.h_orbit).toFixed(0)} km (275.0–280.6 km above WGS-84), nodal period ${M.T_nodal_min.toFixed(2)} min.`,
+  `Deorbit: one Raptor for ${M.deorbit.burn_s} s. Δv ${M.deorbit.dv_flown_ms} m/s as flown (perigee ${M.deorbit.perigee_flown_km} km) and ` +
+  `${M.deorbit.dv_planned_ms} m/s for the planned Chile landing (perigee ${M.deorbit.perigee_planned_km} km), both from the same 3-DOF entry model. ` +
+  `Vehicle calibrated on Flight 14: hypersonic angle of attack ${M.deorbit.alpha}°, L/D ${M.deorbit.ld}, ballistic coefficient ${M.deorbit.beta} kg/m² ` +
+  `(about ${M.deorbit.m_entry_t} t). SpaceX's "entry" times match ${M.deorbit.flown_entry_alt_km}–${M.deorbit.planned_entry_alt_km} km altitude in the model.`].map((t) => `<p>${t}</p>`).join('');
 
 // ---------------------------------------------------------------- tables
 const hazardRows = [['launchA', null], ['indian', 'cont_indian'], ['npac', 'cont_npac'], ['chile', 'planned']];
@@ -595,7 +600,7 @@ function updateUI(s, sunVec) {
     ['Sub-point', `${latS} ${lonS}`], ['Altitude', `${s.alt.toFixed(1)} km`], ['Speed', speed],
     ['Ship', sunlit], ['Ground below', `${A.lightingClass(sunAlt)} (Sun ${sunAlt.toFixed(1)}°)`],
     ['Seen ≥15° within', s.alt > 1 ? `${(A.footprintDeg(s.alt, 15) * 111.195).toFixed(0)} km` : '—'],
-    ['Next event', next ? `${next.label.replace(' (model)', '')} in ${A.fmtMET(next.met - state.met).slice(2)}` : '—']];
+    ['Next event', next ? `${next.label.replace(/ \((model|reconstruction)\)$/, '')} in ${A.fmtMET(next.met - state.met).slice(2)}` : '—']];
   $('status').querySelector('tbody').innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
 }
 

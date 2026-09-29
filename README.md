@@ -33,7 +33,7 @@ insertion burn at apogee (T+00:25:28) circularises it. The planned descent from 
 sized to reach entry interface at the official entry time and landing at T+09:50:30. Flight 14's actual entry
 (deorbit burn T+02:12:00) is a 3-DOF simulation on a rotating WGS-84 Earth with J2 gravity, the US Standard
 Atmosphere 1976 and Newtonian belly-first aerodynamics, solved to hit the reported splashdown point and time
-(`work/ift14_entry.py`). It is a model built from public warnings and reports, **not official ephemeris**.
+(`work/ift14_entry.py`); the planned and contingency descents use the same model and vehicle (`work/ift14_descents.py`). It is a model built from public warnings and reports, **not official ephemeris**.
 
 ## Run the page locally
 
@@ -57,6 +57,7 @@ python work/ift14_map.py            # global map
 python work/ift14_china.py          # four China maps
 python work/ift14_tle.py            # TLEs
 python work/ift14_entry.py --solve --export   # Flight 14 entry reconstruction (a few minutes)
+python work/ift14_descents.py --solve          # physical descents for all profiles (a few minutes)
 python work/ift14_web_export.py --tex   # docs/data/ift14.json and web textures
 ```
 

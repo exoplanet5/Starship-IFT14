@@ -1,6 +1,7 @@
 """Starship IFT-14 (28 Sep 2026, alternates to 4 Oct): orbit plane fitted to NAVAREA/HYDROPAC zones + mission timeline.
 Profile: SECO T+00:08:11 into a suborbital coast ellipse, insertion burn (19 s) at apogee T+00:25:28 -> 275 km
-circular, 6 orbits, deorbit burn T+08:52:18. Descent: retro burn sized to reach EI (120 km) at official entry T+09:28:52, glide to landing T+09:50:30."""
+circular, 6 orbits, deorbit burn T+08:52:18. The kinematic descents D1-D3 below (burn sized for 120 km at the official entry
+time, prescribed glide) only feed this script's report; maps and the page use the physical 3-DOF descents in ift14_descents.py."""
 import re, json, numpy as np, xml.etree.ElementTree as ET
 from pathlib import Path
 from shapely.geometry import Polygon, LineString, Point

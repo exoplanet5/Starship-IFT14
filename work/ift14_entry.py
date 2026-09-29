@@ -71,16 +71,18 @@ def initial_state(met_s):
     return r, v_in - np.cross([0, 0, OM], r)
 
 class Sim:
-    def __init__(self, dv, sigma, t_rev, beta, alpha=None):
+    def __init__(self, dv, sigma, t_rev, beta, alpha=None, t_burn=BURN0, start=None):
         self.dv, self.sigma, self.t_rev, self.beta = dv, np.radians(sigma), t_rev, beta   # km/s, deg, s MET, kg/m^2
         self.alpha = ALPHA_HYP if alpha is None else alpha                              # deg, hypersonic angle of attack
+        self.t_burn = t_burn                                                             # s MET, start of the 11 s burn
+        self.start = start if start is not None else (t_burn, *initial_state(t_burn))   # (MET s, r ECEF, v ECEF)
     def bank(self, t, M):
         s = self.sigma if t < self.t_rev else -self.sigma
         return s*np.clip((M - 1.5)/1.5, 0, 1)                   # steering fades out toward the belly flop
     def rhs(self, t, y):
         r, v = y[:3], y[3:]
         a = gravity(r) - 2*np.cross([0, 0, OM], v) - np.cross([0, 0, OM], np.cross([0, 0, OM], r))
-        if BURN0 <= t < BURN0 + BURN_DUR:                       # retrograde in the inertial frame
+        if self.dv and self.t_burn <= t < self.t_burn + BURN_DUR:   # retrograde in the inertial frame
             vi = v + np.cross([0, 0, OM], r); a = a - (self.dv/BURN_DUR)*vi/np.linalg.norm(vi)
         lat, lon, h = geodetic(r)
         if h < 200:
@@ -92,15 +94,16 @@ class Sim:
             s = self.bank(t, M)
             a = a - D*vh + ld*D*(np.cos(s)*l0 + np.sin(s)*side)
         return np.r_[v, a]
-    def run(self, t_end=4*3600, record=False):
-        r0, v0 = initial_state(BURN0)
+    def run(self, t_end=None, record=False):
+        t_start, r0, v0 = self.start
+        if t_end is None: t_end = t_start + 2*3600
         def ev_ei(t, y): return geodetic(y[:3])[2] - H_EI
         ev_ei.direction = -1
         def ev_lb(t, y):                                          # landing burn: vertical speed x LB_DUR/2 of height left
             r, v = y[:3], y[3:]; up = r/np.linalg.norm(r); h = geodetic(r)[2]
             return h - max(-(v @ up), 0.0)*LB_DUR/2 if h < 5 else 1.0
         ev_lb.terminal = True; ev_lb.direction = -1
-        sol = solve_ivp(self.rhs, (BURN0, t_end), np.r_[r0, v0], method='DOP853', rtol=1e-9, atol=1e-9,
+        sol = solve_ivp(self.rhs, (t_start, t_end), np.r_[r0, v0], method='DOP853', rtol=1e-9, atol=1e-9,
                         events=[ev_ei, ev_lb], max_step=20.0, dense_output=record)
         self.sol = sol
         self.t_ei = sol.t_events[0][0] if len(sol.t_events[0]) else np.nan
