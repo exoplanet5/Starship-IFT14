@@ -136,6 +136,11 @@ export const geocLat = (latDeg) => Math.atan((1 - WGS84_E2) * Math.tan(latDeg * 
 export const geocUnit = (lon, latDeg) => llToVec(lon, geocLat(latDeg));                         // true direction of a track point
 // Observer on the WGS-84 ellipsoid at geodetic lat/lon and height hKm: position P (km) and the local
 // east / north / up unit vectors, "up" being the ellipsoid normal (the astronomical vertical).
+// Point at geodetic lon/lat and height hKm above the WGS-84 ellipsoid, in the scene frame (km).
+export function geodeticToScene(lon, lat, hKm) {
+  const l = lon * D2R, p = lat * D2R, Nr = RE / Math.sqrt(1 - WGS84_E2 * Math.sin(p) ** 2);
+  return [(Nr + hKm) * Math.cos(p) * Math.cos(l), (Nr * (1 - WGS84_E2) + hKm) * Math.sin(p), -(Nr + hKm) * Math.cos(p) * Math.sin(l)];
+}
 export function siteFrame(lon, lat, hKm = 0) {
   const l = lon * D2R, p = lat * D2R, Nr = RE / Math.sqrt(1 - WGS84_E2 * Math.sin(p) ** 2);
   const P = [(Nr + hKm) * Math.cos(p) * Math.cos(l), (Nr * (1 - WGS84_E2) + hKm) * Math.sin(p), -(Nr + hKm) * Math.cos(p) * Math.sin(l)];
@@ -144,10 +149,9 @@ export function siteFrame(lon, lat, hKm = 0) {
   const N = [-Math.sin(p) * Math.cos(l), Math.cos(p), Math.sin(p) * Math.sin(l)];
   return { P, U, E, N };
 }
-// Look angles from a site (frame from siteFrame) to a spacecraft at geocentric unit vector uc, altitude hKm
-// above the model's reference radius (the fit's orbit radius is RE + h).
-export function lookAngles(fr, u, hKm) {
-  const r = RE + hKm, d = [u[0] * r - fr.P[0], u[1] * r - fr.P[1], u[2] * r - fr.P[2]];
+// Look angles from a site (frame from siteFrame) to a spacecraft at scene-frame position P (km, geodeticToScene).
+export function lookAngles(fr, P) {
+  const d = [P[0] - fr.P[0], P[1] - fr.P[1], P[2] - fr.P[2]];
   const rng = Math.hypot(d[0], d[1], d[2]);
   const up = (d[0] * fr.U[0] + d[1] * fr.U[1] + d[2] * fr.U[2]) / rng;
   const e = d[0] * fr.E[0] + d[1] * fr.E[1] + d[2] * fr.E[2], n = d[0] * fr.N[0] + d[1] * fr.N[1] + d[2] * fr.N[2];
@@ -167,9 +171,9 @@ export function altAzOfSubpoint(fr, sub) {
 // polar axis by a/b (the ellipsoid becomes a sphere of radius a); the Sun is a disc of radius 0.2666 deg
 // and the Earth's limb is treated as straight across it. No atmosphere.
 const SUN_R = 0.2666 * D2R;
-export function litFraction(u, hKm, sunVec) {
-  const k = RE / WGS84_B, r = RE + hKm;
-  const x = u[0] * r, y = u[1] * r * k, z = u[2] * r;
+export function litFraction(P, sunVec) {
+  const k = RE / WGS84_B;
+  const x = P[0], y = P[1] * k, z = P[2];
   let sx = sunVec[0], sy = sunVec[1] * k, sz = sunVec[2]; const sn = Math.hypot(sx, sy, sz); sx /= sn; sy /= sn; sz /= sn;
   const d = Math.hypot(x, y, z);
   const rhoE = Math.asin(Math.min(1, RE / d));                                         // Earth's angular radius
@@ -180,4 +184,4 @@ export function litFraction(u, hKm, sunVec) {
   const seg = SUN_R * SUN_R * Math.acos(g / SUN_R) - g * Math.sqrt(SUN_R * SUN_R - g * g); // disc part below the limb
   return 1 - seg / (Math.PI * SUN_R * SUN_R);
 }
-export const sunlit = (u, hKm, sunVec) => litFraction(u, hKm, sunVec) >= 0.5;
+export const sunlit = (P, sunVec) => litFraction(P, sunVec) >= 0.5;

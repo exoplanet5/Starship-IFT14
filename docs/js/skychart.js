@@ -76,8 +76,8 @@ export function createSkyChart({ shipAt, branchEnd, branchInfo, getState, onJump
     const end = branchEnd(branch), out = [];
     let cur = null, prev = null;
     for (let met = 0; met <= end + 1e-6; met += STEP) {
-      const s = shipAt(met, branch), la = A.lookAngles(frame, s.uc, s.alt);
-      const p = { met, az: la.az, el: la.el, rng: la.rng, u: s.uc, alt: s.alt };
+      const s = shipAt(met, branch), la = A.lookAngles(frame, s.p);
+      const p = { met, az: la.az, el: la.el, rng: la.rng, p: s.p, alt: s.alt };
       if (p.el > RISE_EL) {
         if (!cur) {
           cur = { pts: [] };
@@ -99,8 +99,8 @@ export function createSkyChart({ shipAt, branchEnd, branchInfo, getState, onJump
     return out.filter((q) => q.los - q.aos >= 10);
   }
   function lerpPt(a, b, f, branch) {
-    const met = a.met + (b.met - a.met) * f, s = shipAt(met, branch), la = A.lookAngles(frame, s.uc, s.alt);
-    return { met, az: la.az, el: Math.max(la.el, RISE_EL), rng: la.rng, u: s.uc, alt: s.alt };
+    const met = a.met + (b.met - a.met) * f, s = shipAt(met, branch), la = A.lookAngles(frame, s.p);
+    return { met, az: la.az, el: Math.max(la.el, RISE_EL), rng: la.rng, p: s.p, alt: s.alt };
   }
   // seconds of a pass with the ship sunlit, >= 10 deg up, and the site sky at least nautically dark (sun < -6)
   function visibleSeconds(q, t0ms) {
@@ -109,7 +109,7 @@ export function createSkyChart({ shipAt, branchEnd, branchInfo, getState, onJump
       const p = q.pts[i], utc = t0ms + p.met * 1000;
       if (p.el < 10) continue;
       const ss = A.sunSubpoint(utc), sv = A.llToVec(ss.lon, ss.lat);
-      if (A.sunlit(p.u, p.alt, sv) && A.altAzOfSubpoint(frame, ss).alt < -6) sec += p.met - q.pts[i - 1].met;
+      if (A.sunlit(p.p, sv) && A.altAzOfSubpoint(frame, ss).alt < -6) sec += p.met - q.pts[i - 1].met;
     }
     return sec;
   }
@@ -382,7 +382,7 @@ export function createSkyChart({ shipAt, branchEnd, branchInfo, getState, onJump
       const xy = project(p.az, Math.max(p.el, RISE_EL), m);
       if (prev) {
         const utc = st.t0ms + p.met * 1000, ss = A.sunSubpoint(utc);
-        const ecl = !A.sunlit(p.u, p.alt, A.llToVec(ss.lon, ss.lat));
+        const ecl = !A.sunlit(p.p, A.llToVec(ss.lon, ss.lat));
         const col = p.met > bi.switch ? bi.color : COL_ORBIT;
         ctx.strokeStyle = hexA(col, (p.met <= st.met ? 0.35 : 0.85) * (ecl ? 0.5 : 1));
         ctx.setLineDash(ecl ? [3, 3] : []);
@@ -399,7 +399,7 @@ export function createSkyChart({ shipAt, branchEnd, branchInfo, getState, onJump
     const free = (x, y, w, h) => !boxes.some(([bx, by, bw, bh]) => x < bx + bw && bx < x + w && y < by + bh && by < y + h);
     ctx.font = '9px ' + MONO;
     for (let t = Math.ceil(q.aos / 60) * 60; t < q.los; t += stepMin * 60) {
-      const s = shipAt(t, st.branch), la = A.lookAngles(frame, s.uc, s.alt);
+      const s = shipAt(t, st.branch), la = A.lookAngles(frame, s.p);
       if (la.el < RISE_EL) continue;
       const xy = project(la.az, la.el, m);
       ctx.beginPath(); ctx.arc(xy.x, xy.y, 2.2, 0, Math.PI * 2); ctx.fillStyle = t > bi.switch ? bi.color : COL_ORBIT; ctx.fill();
@@ -410,7 +410,7 @@ export function createSkyChart({ shipAt, branchEnd, branchInfo, getState, onJump
     }
     // deorbit burn inside this pass
     if (bi.switch >= q.aos && bi.switch <= q.los) {
-      const s = shipAt(bi.switch, st.branch), la = A.lookAngles(frame, s.uc, s.alt), xy = project(la.az, la.el, m);
+      const s = shipAt(bi.switch, st.branch), la = A.lookAngles(frame, s.p), xy = project(la.az, la.el, m);
       ctx.save(); ctx.translate(xy.x, xy.y); ctx.rotate(Math.PI / 4);
       ctx.fillStyle = bi.color; ctx.strokeStyle = '#080a0e'; ctx.lineWidth = 1; ctx.fillRect(-3.5, -3.5, 7, 7); ctx.strokeRect(-3.5, -3.5, 7, 7); ctx.restore();
       ctx.font = '10px ' + MONO; haloText(`${bi.burnLabel} ${fmtMET(bi.switch)}`, xy.x + 7, xy.y + 9, bi.color);
@@ -453,8 +453,8 @@ export function createSkyChart({ shipAt, branchEnd, branchInfo, getState, onJump
     const pi = currentPass(st.met);
     if (pi >= 0) drawPass(m, passes[pi], st);
     // ship now
-    const s = shipAt(st.met, st.branch), la = A.lookAngles(frame, s.uc, s.alt);
-    const litF = A.litFraction(s.uc, s.alt, A.llToVec(sunSub.lon, sunSub.lat));
+    const s = shipAt(st.met, st.branch), la = A.lookAngles(frame, s.p);
+    const litF = A.litFraction(s.p, A.llToVec(sunSub.lon, sunSub.lat));
     if (la.el > 0 && st.met > 0) {
       const p = project(la.az, la.el, m);
       ctx.fillStyle = hexA(COL_ORBIT, 0.35 + 0.65 * litF); ctx.strokeStyle = 'rgba(8,10,14,0.9)'; ctx.lineWidth = 1;

@@ -20,6 +20,7 @@ MET_SECO = 8 + 11/60            # min
 MET_INS = 25 + 28/60            # insertion burn (19 s) at apogee
 MET_BURN3 = 8*60 + 52 + 18/60   # planned deorbit burn start (official flight-timeline.txt)
 MET_BURN3_END = 8*60 + 52 + 29/60
+MET_BURN2 = 2*60 + 12.0            # North Pacific deorbit burn as flown on 28 Sep (T+02:12:00-02:12:11); equals the zone's window opening
 MET_ENTRY_OFF = 9*60 + 28 + 52/60   # official 'Starship entry'
 MET_LAND_OFF = 9*60 + 50 + 30/60    # official landing
 MET_DEPLOY0, MET_DEPLOY1 = 34 + 18/60, 64 + 50/60   # Starlink V3 deploy start / complete
@@ -120,6 +121,22 @@ class Plane:
         self.L0 = np.radians(STARBASE[0] + dlon) - np.arctan2(self.ci*np.sin(self.u0), np.cos(self.u0))
         self.u_seco = self.u0 + np.radians(SECO_DOWNRANGE)
         self.u_ins = self.u_seco + (np.pi - NU_SECO)
+        # The zones put the orbital plane a little off the pad (dlon). The ascent is built in Earth-fixed
+        # coordinates: it leaves the pad at rest and meets the coast trajectory at SECO in position and velocity
+        # (cubic Hermite on the unit sphere), so it starts exactly at Starbase and steers into the plane.
+        self.P_pad = np.array([np.cos(lat_sc)*np.cos(np.radians(STARBASE[0])), np.cos(lat_sc)*np.sin(np.radians(STARBASE[0])), np.sin(lat_sc)])
+        self.P_seco = self._unit(MET_SECO, self.u_seco)
+        d = 1e-3; u_d = self.u_seco + (COAST.nu_at_M(M_SECO + COAST.n*d) - NU_SECO)
+        self.V_seco = (self._unit(MET_SECO + d, u_d) - self.P_seco)/d          # Earth-fixed rate at SECO, per minute
+        N, M, n = self._frame(self.L0)
+        self.x_pad = np.arcsin(self.P_pad @ n)                                    # pad's distance from the plane (rad)
+    def _frame(self, L):
+        N = np.array([np.cos(L), np.sin(L), 0.0])                                  # ascending node
+        M = np.array([-np.sin(L)*self.ci, np.cos(L)*self.ci, self.si])            # 90 deg ahead in the plane
+        return N, M, np.cross(N, M)                                                # plane normal
+    def _unit(self, met, u):                                                       # Earth-fixed unit vector on the orbit
+        N, M, _ = self._frame(self.L0 + (self.Odot - OMEGA_E)*met)
+        return np.cos(u)*N + np.sin(u)*M
     def lonlat(self, met, u):
         L = self.L0 + (self.Odot - OMEGA_E)*np.asarray(met, float)
         lon = np.degrees(L + np.arctan2(self.ci*np.sin(u), np.cos(u))); lon = (lon+180) % 360 - 180
@@ -132,7 +149,18 @@ class Plane:
         u[c] = self.u_seco + (COAST.nu_at_M(M_SECO + COAST.n*(met[c]-MET_SECO)) - NU_SECO)
         u[o] = self.u_ins + self.udot*(met[o] - MET_INS)
         return u
-    def nominal(self, met): return (*self.lonlat(met, self.u_nominal(met)), )
+    def nominal(self, met):
+        met = np.asarray(met, float); lon, lat = self.lonlat(met, self.u_nominal(met))
+        a = met < MET_SECO
+        if np.any(a):                                   # ascent: Hermite from the pad (at rest) to the SECO state
+            s_ = met[a]/MET_SECO
+            h01 = 3*s_**2 - 2*s_**3; h00 = 1 - h01; h11 = s_**3 - s_**2
+            v = h00[:, None]*self.P_pad + h01[:, None]*self.P_seco + (MET_SECO*h11)[:, None]*self.V_seco
+            v /= np.linalg.norm(v, axis=1)[:, None]
+            lon = lon.copy(); lat = lat.copy()
+            lon[a] = (np.degrees(np.arctan2(v[:, 1], v[:, 0])) + 180) % 360 - 180
+            lat[a] = geoc2geod(np.degrees(np.arcsin(np.clip(v[:, 2], -1, 1))))
+        return lon, lat
     def alt_nominal(self, met):
         """altitude (km): ascent 0->H_SECO (smooth), coast ellipse, then circular orbit"""
         met = np.asarray(met, float); h = np.full_like(met, H_ORBIT)
@@ -196,7 +224,7 @@ npac_orbital_entry = [c for c in crossings(Z['npac'], MET_GRID, nom_lon, nom_lat
 chile_orbital_entry = [c for c in crossings(Z['chile'], MET_GRID, nom_lon, nom_lat) if c[0] > 540][0][0]
 BURN_LEAD = chile_orbital_entry - MET_BURN3
 D3 = pl.descent_from_orbit(MET_BURN3)
-D2 = pl.descent_from_orbit(npac_orbital_entry - BURN_LEAD)
+D2 = pl.descent_from_orbit(MET_BURN2)
 def zone_window(D, keys):
     c = []
     for k in keys: c += crossings(Z[k], D['met'], D['lon'], D['lat'])

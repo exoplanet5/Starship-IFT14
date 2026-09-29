@@ -26,10 +26,10 @@ const M = data.meta;
 class Track {
   constructor(seg) {
     this.met0 = seg.met0; this.dt = seg.dt; this.n = seg.lon.length;
-    this.u = new Float32Array(this.n * 3); this.uc = new Float32Array(this.n * 3); this.alt = Float32Array.from(seg.alt);
+    this.u = new Float32Array(this.n * 3); this.P = new Float64Array(this.n * 3); this.alt = Float32Array.from(seg.alt);
     for (let i = 0; i < this.n; i++) {
-      this.u.set(A.llToVec(seg.lon[i], seg.lat[i]), 3 * i);      // on the map: geodetic latitude on the textured globe
-      this.uc.set(A.geocUnit(seg.lon[i], seg.lat[i]), 3 * i);    // in space: true geocentric direction (look angles, shadow)
+      this.u.set(A.llToVec(seg.lon[i], seg.lat[i]), 3 * i);                    // drawing: geodetic lat/lon on the textured globe
+      this.P.set(A.geodeticToScene(seg.lon[i], seg.lat[i], seg.alt[i]), 3 * i);  // physics: exact WGS-84 position (km)
     }
   }
   get end() { return this.met0 + (this.n - 1) * this.dt; }
@@ -37,8 +37,8 @@ class Track {
   sample(met) {
     let f = Math.max(0, Math.min(this.n - 1, (met - this.met0) / this.dt));
     const i = Math.min(this.n - 2, Math.floor(f)), w = f - i, a = 3 * i, b = a + 3;
-    const lerp = (u) => { const x = u[a] + (u[b] - u[a]) * w, y = u[a + 1] + (u[b + 1] - u[a + 1]) * w, z = u[a + 2] + (u[b + 2] - u[a + 2]) * w, r = Math.hypot(x, y, z); return [x / r, y / r, z / r]; };
-    return { u: lerp(this.u), uc: lerp(this.uc), alt: this.alt[i] + (this.alt[i + 1] - this.alt[i]) * w };
+    const lerp = (u, norm) => { const x = u[a] + (u[b] - u[a]) * w, y = u[a + 1] + (u[b + 1] - u[a + 1]) * w, z = u[a + 2] + (u[b + 2] - u[a + 2]) * w, r = norm ? Math.hypot(x, y, z) : 1; return [x / r, y / r, z / r]; };
+    return { u: lerp(this.u, true), p: lerp(this.P, false), alt: this.alt[i] + (this.alt[i + 1] - this.alt[i]) * w };
   }
   // flat xyz array for points i0..i1 (inclusive); ground = surface projection
   pts(exag, i0 = 0, i1 = this.n - 1, ground = false) {
@@ -53,18 +53,13 @@ class Track {
 const T = Object.fromEntries(Object.entries(data.tracks).map(([k, v]) => [k, new Track(v)]));
 const NOM = T.nominal;
 const iAt = (met) => Math.round(met / NOM.dt);
-const PAD = A.llToVec(M.starbase[0], M.starbase[1]), PAD_C = A.geocUnit(M.starbase[0], M.starbase[1]);
-const BR = data.branches;
-const EI = { planned: 34132, cont_npac: null, cont_indian: null };
-for (const e of data.events) {
-  if (e.label.startsWith('Contingency entry')) EI.cont_npac = e.met;
-  if (e.label.startsWith('Entry (no insertion')) EI.cont_indian = e.met;
-}
+const PAD = A.llToVec(M.starbase[0], M.starbase[1]), PAD_P = A.geodeticToScene(M.starbase[0], M.starbase[1], 0);
+const BR = data.branches;                         // profiles: switch (leaves the orbit), descent track, ei, lb, landing text
 const branchEnd = (b) => T[BR[b].descent].end;
 
 function shipAt(met, b) {
   const B = BR[b];
-  if (met <= 0) return { u: PAD, uc: PAD_C, alt: 0 };
+  if (met <= 0) return { u: PAD, p: PAD_P, alt: 0 };
   if (met <= B.switch) return NOM.sample(met);
   return T[B.descent].sample(met);
 }
@@ -72,17 +67,18 @@ function phaseOf(met, b) {
   const B = BR[b], end = branchEnd(b);
   if (met < 0) return 'pre-launch';
   if (met < M.met_seco) return 'ascent (powered)';
-  if (b === 'cont_indian' && met >= B.switch) {
-    if (met < EI.cont_indian) return 'suborbital coast, no insertion burn';
-    return met < end ? 'entry and glide' : 'splashdown, Indian Ocean';
+  if (B.kind === 'suborbital' && met >= B.switch) {
+    if (met < B.ei) return 'suborbital coast, no insertion burn';
+    return met < end ? 'entry and glide' : B.landing;
   }
   if (met < M.met_ins) return 'suborbital coast';
   if (met < M.met_ins + 19) return 'orbit insertion burn';
-  if (met < B.switch) return `orbit ${Math.floor((met - M.met_ins) / (M.T_nodal_min * 60)) + 1} of 6`;
-  if (met < B.switch + 11) return b === 'planned' ? 'deorbit burn' : 'contingency deorbit burn';
-  if (met < EI[b]) return 'coast to entry';
+  if (met < B.switch) return `orbit ${Math.floor((met - M.met_ins) / (M.T_nodal_min * 60)) + 1}`;
+  if (met < B.switch + 11) return B.burnLabel;
+  if (met < B.ei) return 'coast to entry';
+  if (B.lb && met >= B.lb && met < end) return 'landing burn';
   if (met < end) return 'entry and glide';
-  return b === 'planned' ? 'landed W of Chile' : 'splashdown, North Pacific';
+  return B.landing;
 }
 
 // ---------------------------------------------------------------- state (URL-restorable)
@@ -95,7 +91,7 @@ const parseMet = (s) => {
 };
 const state = {
   date: [M.date, ...M.alternates].includes(qs.get('date')) ? qs.get('date') : M.date,
-  t0: qs.get('t0') ? A.parseHM(qs.get('t0')) : A.parseHM(M.t0_min),
+  t0: qs.get('t0') ? A.parseHM(qs.get('t0')) : A.parseHM(qs.get('br') === 'flown' ? M.flown.t0 : M.t0_min),
   branch: BR[qs.get('br')] ? qs.get('br') : 'planned',
   met: parseMet(qs.get('met')) ?? 0,
   playing: false, speed: 60, live: false,
@@ -328,27 +324,26 @@ const gtGroup = new THREE.Group(); scene.add(gtGroup);
 const evGroup = new THREE.Group(); scene.add(evGroup);
 let trail = null, trailNomCount = 0, pathFlat = null, trailKey = '';
 const TRAIL_PTS = 300;   // 50 min of flown path
-const DESC_COLOR = { planned: C.ok, cont_npac: C.warn, cont_indian: C.danger };
+const DESC_COLOR = Object.fromEntries(Object.entries(BR).map(([k, v]) => [k, v.color]));
 const SHORT = { 'Liftoff': 'Liftoff', 'Starship engine cutoff': 'SECO', 'Starship orbital insertion burn start': 'Orbit insertion burn (19 s)',
-                'Deorbit burn start': 'Deorbit burn (11 s)', 'Starship entry': 'Entry', 'An exciting landing!': 'Landing W of Chile' };
+                'Deorbit burn start': 'Deorbit burn (11 s)', 'Starship entry': 'Entry', 'An exciting landing!': 'Landing W of Chile',
+                'Entry interface, 120 km (reconstruction)': 'Entry interface (120 km)', 'Splashdown north of Hawaii': 'Splashdown N of Hawaii' };
 const evTex = spriteTex((g, s) => { g.translate(s / 2, s / 2); g.rotate(Math.PI / 4); g.fillStyle = '#ffffff'; g.strokeStyle = '#080a0e'; g.lineWidth = 5; g.fillRect(-11, -11, 22, 22); g.strokeRect(-11, -11, 22, 22); });
 
 function buildTrajectory() {
   disposeGroup(trajGroup); disposeGroup(gtGroup); disposeGroup(evGroup);
-  const ex = state.exag, iS = iAt(M.met_seco), iI = iAt(M.met_ins), b = state.branch;
-  trajGroup.add(mkLine(NOM.pts(ex, 0, iS), { color: C.sun, width: 2.6 }));
-  trajGroup.add(mkLine(NOM.pts(ex, iS, iI), { color: C.sun, width: 2.2, dashed: true }));
-  trajGroup.add(mkLine(NOM.pts(ex, iI, NOM.n - 1), { color: C.accent, width: 1.7, opacity: b === 'cont_indian' ? 0.35 : 0.95 }));
-  for (const k of Object.keys(BR)) {
-    const d = T[BR[k].descent];
-    trajGroup.add(mkLine(d.pts(ex), { color: DESC_COLOR[k], width: k === b ? 2.4 : 1.6, dashed: true, opacity: k === b ? 1 : 0.4 }));
-  }
-  // ground tracks
-  gtGroup.add(mkLine(NOM.pts(ex, 0, NOM.n - 1, true), { color: C.white, width: 1, opacity: 0.22 }));
-  gtGroup.add(mkLine(T[BR[b].descent].pts(ex, 0, T[BR[b].descent].n - 1, true), { color: DESC_COLOR[b], width: 1, opacity: 0.35 }));
+  const ex = state.exag, b = state.branch, B = BR[b], D = T[B.descent];
+  const iS = iAt(M.met_seco), iI = iAt(M.met_ins), iSw = Math.floor(B.switch / NOM.dt + 1e-6);
+  // only the selected profile: ascent, coast, orbit up to where it leaves the orbit, then its descent
+  trajGroup.add(mkLine(NOM.pts(ex, 0, Math.min(iS, iSw)), { color: C.sun, width: 2.6 }));
+  trajGroup.add(mkLine(NOM.pts(ex, iS, Math.min(iI, iSw)), { color: C.sun, width: 2.2, dashed: true }));
+  if (iSw > iI) trajGroup.add(mkLine(NOM.pts(ex, iI, iSw), { color: C.accent, width: 1.7, opacity: 0.95 }));
+  trajGroup.add(mkLine(D.pts(ex), { color: B.color, width: 2.4, dashed: B.kind !== 'flown', opacity: 1 }));
+  // ground track of the same path
+  gtGroup.add(mkLine(NOM.pts(ex, 0, iSw, true), { color: C.white, width: 1, opacity: 0.22 }));
+  gtGroup.add(mkLine(D.pts(ex, 0, D.n - 1, true), { color: B.color, width: 1, opacity: 0.35 }));
   // flown trail of the selected profile: nominal up to the switch point, then its descent
-  const iSw = Math.floor(BR[b].switch / NOM.dt + 1e-6);
-  const flat = NOM.pts(ex, 0, iSw).concat(T[BR[b].descent].pts(ex));
+  const flat = NOM.pts(ex, 0, iSw).concat(D.pts(ex));
   trailNomCount = iSw + 1;
   pathFlat = flat; trailKey = '';
   trail = mkLine(flat.slice(0, 6), { color: C.white, width: 1.3, opacity: 0.95 });
@@ -417,7 +412,7 @@ function updateFootprint(u, alt) {
 }
 
 // ---------------------------------------------------------------- sky chart pop-up for China cities
-const BURN_LABEL = { planned: 'deorbit burn', cont_npac: 'contingency burn', cont_indian: 'insertion skipped' };
+const BURN_LABEL = Object.fromEntries(Object.entries(BR).map(([k, v]) => [k, v.skyLabel]));
 const sky = createSkyChart({
   shipAt, branchEnd, fmtMET: A.fmtMET,
   branchInfo: (b) => ({ switch: BR[b].switch, color: DESC_COLOR[b], burnLabel: BURN_LABEL[b] }),
@@ -458,7 +453,8 @@ const allDates = [M.date, ...M.alternates];
 $('date').innerHTML = allDates.map((d, i) => `<option value="${d}">${d}${i ? '  (alternate)' : '  (primary)'}</option>`).join('');
 $('date').value = state.date;
 Object.assign($('t0'), { min: A.parseHM(M.t0_min), max: A.parseHM(M.t0_max), value: state.t0 });
-$('t0presets').innerHTML = M.t0_presets.map((p) => `<button class="btn" data-t0="${p}">${p}Z</button>`).join('');
+$('t0presets').innerHTML = M.t0_presets.map((p) => `<button class="btn" data-t0="${p}">${p}Z</button>`).join('') +
+  `<button class="btn" data-t0="${M.flown.t0}" data-date="${M.flown.date}" title="Flight 14 liftoff, 28 Sep 2026">${M.flown.t0}Z flown</button>`;
 $('branch').innerHTML = Object.entries(BR).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
 $('branch').value = state.branch;
 $('views').innerHTML = VIEWS.map((v, i) => `<button class="btn" data-view="${i}">${v[0]}</button>`).join('');
@@ -487,8 +483,13 @@ let tablesDirty = true;
 const dirty = () => { tablesDirty = true; };
 $('date').addEventListener('change', () => { state.date = $('date').value; dirty(); });
 $('t0').addEventListener('input', () => { state.t0 = +$('t0').value; dirty(); });
-$('t0presets').addEventListener('click', (e) => { const p = e.target.dataset.t0; if (p) { state.t0 = A.parseHM(p); $('t0').value = state.t0; dirty(); } });
-$('branch').addEventListener('change', () => { state.branch = $('branch').value; updateMetRange(); setMet(state.met); buildTrajectory(); dirty(); });
+function setLaunch(t0, date) { state.t0 = t0; $('t0').value = t0; if (date) { state.date = date; $('date').value = date; } dirty(); }
+$('t0presets').addEventListener('click', (e) => { const p = e.target.dataset.t0; if (p) setLaunch(A.parseHM(p), e.target.dataset.date); });
+$('branch').addEventListener('change', () => {
+  state.branch = $('branch').value;
+  if (BR[state.branch].kind === 'flown') setLaunch(A.parseHM(M.flown.t0), M.flown.date);
+  updateMetRange(); setMet(state.met); buildTrajectory(); dirty();
+});
 $('met').addEventListener('input', () => { setPlaying(false); setMet(+$('met').value); });
 $('play').addEventListener('click', () => setPlaying(!state.playing));
 $('speed').addEventListener('change', () => { state.speed = +$('speed').value; });
@@ -506,7 +507,7 @@ async function copyText(text, btn) {
 $('copytle').addEventListener('click', () => copyText($('tle').textContent, $('copytle')));
 $('link').addEventListener('click', () => {
   const ll = A.vecToLL(camera.position.x, camera.position.y, camera.position.z);
-  const q = new URLSearchParams({ date: state.date, t0: A.fmtHMS(state.t0 * 1000).slice(0, 5), met: A.fmtMET(state.met).slice(2).replace('−', '-'),
+  const q = new URLSearchParams({ date: state.date, t0: state.t0 % 60 ? A.fmtHMS(state.t0 * 1000) : A.fmtHMS(state.t0 * 1000).slice(0, 5), met: A.fmtMET(state.met).slice(2).replace('−', '-'),
     br: state.branch, cam: `${ll.lon.toFixed(1)},${ll.lat.toFixed(1)},${camera.position.length().toFixed(2)}` });
   if (state.exag !== 1) q.set('exag', state.exag);
   if (state.follow) q.set('follow', '1');
@@ -548,21 +549,23 @@ function buildTables() {
   // hazard windows
   $('hazard').querySelector('tbody').innerHTML = hazardRows.map(([k]) => {
     const z = data.zones.find((q) => q.key === k), [w0, w1] = A.hazardWindow(state.date, z.t0, z.t1);
-    const c0 = k === 'launchA' ? T0 : T0 + z.cross[0] * 1000, c1 = k === 'launchA' ? T0 : T0 + z.cross[1] * 1000;
+    const br = z.cross[b] ? b : z.branch, cr = z.cross[br] || z.cross.launch;
+    const c0 = k === 'launchA' ? T0 : T0 + cr[0] * 1000, c1 = k === 'launchA' ? T0 : T0 + cr[1] * 1000;
     const ok = c0 >= w0 && c1 <= w1;
     const cross = k === 'launchA' ? `T0 ${A.fmtHMS(T0).slice(0, 5)}` : `${A.fmtHMS(c0).slice(0, 5)}–${A.fmtHMS(c1).slice(0, 5)}`;
     const name = { launchA: 'Launch', indian: 'Indian Oc.', npac: 'N Pacific', chile: 'W of Chile' }[k];
-    return `<tr title="${z.id}: ${z.desc}"><td><span class="sw" style="background:${z.color}"></span>${name}</td><td>${z.t0}–${z.t1}Z</td><td>${cross}</td><td class="${ok ? 'ok' : 'bad'}">${ok ? '✓' : '✗ outside'}</td></tr>`;
+    const here = br === b ? ' style="font-weight:600"' : '';
+    return `<tr title="${z.id}: ${z.desc}"${here}><td><span class="sw" style="background:${z.color}"></span>${name}</td><td>${z.t0}–${z.t1}Z</td><td>${cross}</td><td class="${ok ? 'ok' : 'bad'}">${ok ? '✓' : '✗ outside'}</td></tr>`;
   }).join('');
-  $('hazardnote').textContent = 'Crossing is the model entry and exit of each zone on the profile that uses it; the launch row checks T0 against the launch warning.';
+  $('hazardnote').textContent = 'Crossing is the entry and exit of each zone on the profile that uses it (bold: the selected profile); the launch row checks T0 against the launch warning.';
   // events
   $('events').querySelector('tbody').innerHTML = data.events.filter((e) => e.branches.includes(b)).map((e) =>
     `<tr data-met="${e.met}"><td class="t">${A.fmtMET(e.met)}</td><td class="t">${A.fmtHMS(T0 + e.met * 1000)}</td><td>${e.official ? e.label : `<span class="dim">${e.label}</span>`}</td></tr>`).join('');
   // TLE
   const tle = A.tleForT0(data.tle_ref, T0);
   $('tle').textContent = `${tle.name}\n${tle.l1}\n${tle.l2}`;
-  $('t0v').textContent = A.fmtHMS(T0).slice(0, 5) + 'Z';
-  document.querySelectorAll('#t0presets .btn').forEach((x) => x.classList.toggle('on', A.parseHM(x.dataset.t0) === state.t0));
+  $('t0v').textContent = (state.t0 % 60 ? A.fmtHMS(T0) : A.fmtHMS(T0).slice(0, 5)) + 'Z';
+  document.querySelectorAll('#t0presets .btn').forEach((x) => x.classList.toggle('on', A.parseHM(x.dataset.t0) === state.t0 && (!x.dataset.date || x.dataset.date === state.date)));
   tablesDirty = false;
 }
 
@@ -579,13 +582,13 @@ function updateUI(s, sunVec) {
     const m = +tr.dataset.met; tr.classList.toggle('past', m <= state.met); tr.classList.toggle('next', next && m === next.met);
   });
   // status
-  const ll = A.vecToLL(...s.u), sunAlt = A.sunAltDeg(sunVec, s.u), litF = A.litFraction(s.uc, s.alt, sunVec);
+  const ll = A.vecToLL(...s.u), sunAlt = A.sunAltDeg(sunVec, s.u), litF = A.litFraction(s.p, sunVec);
   const sunlit = s.alt > 1 ? (litF >= 1 ? 'in sunlight' : litF <= 0 ? 'in Earth shadow' : `in penumbra, ${(litF * 100).toFixed(0)}% lit`) : (sunAlt > 0 ? 'in sunlight' : 'in darkness');
   const a = shipAt(state.met - 5, b), c = shipAt(state.met + 5, b);
-  const pa = a.uc.map((v) => v * (RE + a.alt)), pc = c.uc.map((v) => v * (RE + c.alt));
-  const vef = pc.map((v, i) => (v - pa[i]) / 10), w = 7.2921159e-5, r = s.uc.map((v) => v * (RE + s.alt));
+  const pa = a.p, pc = c.p;
+  const vef = pc.map((v, i) => (v - pa[i]) / 10), w = 7.2921159e-5, r = s.p;
   const vin = [vef[0] + w * r[2], vef[1], vef[2] - w * r[0]];
-  const speed = state.met > 0 && state.met < metMax() ? `${Math.hypot(...vin).toFixed(2)} km/s inertial` : '—';
+  const speed = state.met > 0 && state.met < metMax() ? `${Math.round(Math.hypot(...vef) * 3600).toLocaleString('en-US')} km/h rel. Earth · ${Math.hypot(...vin).toFixed(2)} km/s inertial` : '—';
   const latS = `${Math.abs(ll.lat).toFixed(2)}°${ll.lat >= 0 ? 'N' : 'S'}`, lonS = `${Math.abs(ll.lon).toFixed(2)}°${ll.lon >= 0 ? 'E' : 'W'}`;
   const phase = phaseOf(state.met, b);
   const rows = [['UTC', `${A.fmtDate(utc)} ${A.fmtHMS(utc)}Z`], ['China (CST)', A.fmtHMS(utc, 8)], ['MET', A.fmtMET(state.met)], ['Phase', phase],
@@ -614,7 +617,7 @@ function frame(now) {
   const s = shipAt(metC, state.branch), rr = 1 + s.alt * state.exag / RE;
   ship.position.set(...s.u.map((v) => v * rr)); shipLabel.position.copy(ship.position); glint.position.copy(ship.position);
   {
-    const lit = s.alt > 1 ? A.litFraction(s.uc, s.alt, sunVec) : (A.sunAltDeg(sunVec, s.u) > 0 ? 1 : 0);
+    const lit = s.alt > 1 ? A.litFraction(s.p, sunVec) : (A.sunAltDeg(sunVec, s.u) > 0 ? 1 : 0);
     ship.material.color.setScalar(0.38 + 0.62 * lit); ship.material.opacity = 0.5 + 0.5 * lit;
     glint.material.opacity = lit * (0.8 + 0.12 * Math.sin(now / 260)); glint.visible = lit > 0.01;
     // point the nose along the motion on screen (radially outward on the pad or after landing)

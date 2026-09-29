@@ -1,6 +1,9 @@
 # Starship IFT-14 — orbit fit from navigational warnings
 
-Launch: 28 Sep 2026, window 12:15:00–13:30:00Z (75 min). Alternates daily 29 Sep – 4 Oct, same window.
+Launch window: 28 Sep 2026, 12:15:00–13:30:00Z (75 min), alternates daily 29 Sep – 4 Oct.
+**Flown 28 Sep 2026, liftoff 12:48:59 UTC.** One Raptor Vacuum shut down early on ascent; the ship still reached
+orbit, deployed 26 Starlink V3, and returned early: deorbit burn T+02:12:00, splashdown north of Hawaii at T+03:08:30
+(see "Flight 14 as flown" below).
 
 Inputs (navwarning/, issued 17–23 Sep, all valid daily 28 Sep – 4 Oct):
 NAVAREA IV 922/26 (launch A+B, 1215–1414Z), HYDROPAC 2751/26 (Indian Ocean, 1223–1447Z),
@@ -22,12 +25,14 @@ The fit uses the track-aligned western strip (old area A, west of 172.6°E); the
 longitude and every event time and zone crossing below is unchanged to the second.
 
 ## Flight profile used (work/ift14_fit.py)
-- T+00:00:00 liftoff, launch azimuth ≈107° (SE over the Gulf, Yucatán Channel, south of Cuba).
+- T+00:00:00 liftoff from Starbase, heading ESE over the Gulf, Yucatán Channel, south of Cuba. The ascent is an
+  Earth-fixed curve that leaves the pad at rest and meets the coast trajectory at SECO in position and velocity
+  (earlier versions started the ascent 1.6° east of the pad).
 - T+00:08:11 SECO into a suborbital coast ellipse (assumed SECO at 150 km, ~1700 km downrange):
   apogee 275 km, perigee −99 km, e = 0.029.
-- T+00:25:28–00:25:47 orbit insertion burn (19 s) at apogee (12.4°S 25.0°W, mid South Atlantic) → 275 km circular.
+- T+00:25:28–00:25:47 orbit insertion burn (19 s) at apogee (12.5°S 24.6°W, mid South Atlantic) → 275 km circular.
 - T+00:34:18–01:04:50 Starlink V3 deployment (official timeline, flight-timeline.txt).
-- Six revolutions; deorbit burn T+08:52:18–08:52:29 (official), subpoint 29.9°N 79.6°E over western Tibet.
+- Six revolutions; deorbit burn T+08:52:18–08:52:29 (official), subpoint 30.0°N 80.0°E over western Tibet.
 - Official entry T+09:28:52, landing T+09:50:30. Descent model calibrated to these: retrograde 49 m/s →
   perigee 108 km, entry interface (EI, 120 km) 36.6 min after the burn at flight-path angle −0.38°, then a
   21.6 min lifting glide (speed 7.5 → 0.3 km/s, ~5050 km). With these official numbers the entry point lands
@@ -39,47 +44,55 @@ longitude and every event time and zone crossing below is unchanged to the secon
 ## Plane fit
 | parameter | value |
 |---|---|
-| inclination | 30.49° |
+| inclination | 30.58° |
 | nodal period | 89.75 min, ground-track shift 23.0° W per rev |
-| plane longitude offset at the pad | +1.6° (absorbs yaw steering and the ascent's Earth-rotation lag) |
-| cross-track rms | launch 0.48°, Indian 0.24°, N Pac A 0.20°, Chile 0.66° |
+| plane position | passes about 60 km from the pad; the ascent steers into it (a small dogleg) |
+| cross-track rms | launch 0.47°, Indian 0.27°, N Pacific 0.21°, Chile 0.63° |
+
+Why the plane is off the pad: forcing the plane through the pad (no dogleg) raises the fit error by 20 % and doubles
+the Indian Ocean residual (inclination would be 30.13°). Matching each zone to its own descent instead of the orbit
+does not help (the descents follow the orbit's track within a fraction of a degree). The offset at the pad is about
+46 km across the track (the rest is along-track and irrelevant to strip-shaped zones), so the published zones imply
+a plane slightly northeast of the pad, reached by yaw steering during the ascent. The earlier fit expressed this as a
+1.6° longitude offset and started the drawn ascent there, east of Starbase; the ascent now starts on the pad.
 
 ## Timeline (T+ from a 12:15:00Z launch; every UTC shifts 1:1 with the actual T0)
 
 | event | MET | UTC (12:15 T0) | position |
 |---|---|---|---|
-| SECO | T+00:08:11 | 12:23:11Z | 20.9°N 82.3°W |
-| insertion burn | T+00:25:28 | 12:40:28Z | 12.4°S 25.0°W |
-| Starlink V3 deploy start / complete | T+00:34:18 / 01:04:50 | 12:49:18 / 13:19:50Z | 28°S 9°E / 0° 123°E |
-| #1 no-insertion entry | T+00:45:03 | 13:00:03Z | 29.8°S 53.5°E |
-| #1 Indian Ocean zone | T+00:50:38–01:00:58 | 13:05:38–13:15:58Z | splash 20.4°S 85.3°E at T+01:01:03 |
-| #2 contingency deorbit burn | T+02:11:08 | 14:26:08Z | 30.7°S 14.7°E (S Atlantic off the Cape) |
-| #2 entry | T+02:47:42 | 15:02:42Z | 25.3°N 149.8°E (west end of the zone) |
-| #2 North Pacific zone | T+02:46:28–03:09:18 | 15:01:28–15:24:18Z | splash 29.9°N 164.3°W at T+03:09:20 |
-| planned deorbit burn | T+08:52:18–08:52:29 | 21:07:18Z | 29.9°N 79.6°E (Tibet) |
-| entry | T+09:28:52 | 21:43:52Z | 21.6°S 143.9°W (west end of zone) |
-| Chile zone | T+09:27:38–09:50:28 | 21:42:38–22:05:28Z | landing 30.6°S 99.4°W at T+09:50:30 |
+| SECO | T+00:08:11 | 12:23:11Z | 20.8°N 81.8°W |
+| insertion burn | T+00:25:28 | 12:40:28Z | 12.5°S 24.6°W |
+| Starlink V3 deploy start / complete | T+00:34:18 / 01:04:50 | 12:49:18 / 13:19:50Z | 26°S 8°E / 2°N 126°E |
+| #1 no-insertion entry | T+00:45:03 | 13:00:03Z | 29.8°S 54.1°E |
+| #1 Indian Ocean zone | T+00:50:28–01:00:58 | 13:05:28–13:15:58Z | splash 20.4°S 85.8°E at T+01:01:03 |
+| #2 contingency deorbit burn | T+02:12:00 | 14:27:00Z | 30.7°S 19.0°E (S Atlantic off the Cape); as flown |
+| #2 entry | T+02:48:34 | 15:03:34Z | 26.5°N 153.8°E |
+| #2 North Pacific zone | T+02:46:30–03:10:10 | 15:01:30–15:25:10Z | splash 29.4°N 160.1°W at T+03:10:12 (model glide) |
+| planned deorbit burn | T+08:52:18–08:52:29 | 21:07:18Z | 30.0°N 80.0°E (Tibet) |
+| entry | T+09:28:52 | 21:43:52Z | 21.7°S 143.5°W (west end of zone) |
+| Chile zone | T+09:27:28–09:50:28 | 21:42:28–22:05:28Z | landing 30.7°S 98.9°W at T+09:50:30 |
 
-Ascending nodes: T+01:04:00 (122.9°E), 02:33:50 (100.2°E), 04:03:30 (77.0°E), 05:33:20 (54.3°E), 07:03:00 (31.0°E), 08:32:50 (8.4°E).
+Ascending nodes: T+01:04:00 (123.3°E), 02:33:50 (100.6°E), 04:03:30 (77.4°E), 05:33:20 (54.7°E), 07:03:00 (31.5°E), 08:32:50 (8.8°E).
 
 ## Hazard windows vs. mission time
-- North Pacific opens 14:27Z = T+02:12 for a 12:15 launch: exactly the contingency #2 deorbit burn (T+02:11:08),
-  35.7 min before the track reaches the zone at orbital rate. The re-issued warning joins the old areas A (Japan side)
+- North Pacific opens 14:27Z = T+02:12 for a 12:15 launch: exactly the contingency deorbit burn, which Flight 14
+  flew at T+02:12:00, 35.5 min before the track reaches the zone at orbital rate. The re-issued warning joins the old areas A (Japan side)
   and B (Hawaii side) into one zone along this pass; its eastern wedge ends at 145°W.
 - Chile opens 21:07Z = T+08:52: the official deorbit burn (T+08:52:18) to the minute. Landing T+09:50:30,
   "nearly 10 h", after six full revolutions.
 - Indian Ocean opens 12:23Z = T+00:08 = SECO: from SECO the ship is on a ballistic path into the Indian Ocean
   unless the insertion burn is made at T+00:25:28. The zone closes 14:47Z; with the 13:30Z window close the latest
-  crossing is 14:20:38–14:30:58Z, so every launch time in the 75 min window is covered (with the earlier 2 h window
+  crossing is 14:20:28–14:30:58Z, so every launch time in the 75 min window is covered (with the earlier 2 h window
   it would not have been).
 - Zone closing times carry roughly one extra revolution of margin.
 - The east end of the Indian zone is cut by a 393 km radius arc centred on Cocos (Keeling) Islands, not a target.
 
 | zone | crossing, T0 12:15Z | crossing, T0 13:30Z | published |
 |---|---|---|---|
-| Indian Ocean | 13:05:38–13:15:58Z | 14:20:38–14:30:58Z | 1223–1447Z |
-| North Pacific | 15:01:28–15:24:18Z | 16:16:28–16:39:18Z | 1427–1833Z |
-| W of Chile | 21:42:38–22:05:28Z | 22:57:38–23:20:28Z | 2107–0108Z |
+| Indian Ocean | 13:05:28–13:15:58Z | 14:20:28–14:30:58Z | 1223–1447Z |
+| North Pacific | 15:01:30–15:25:10Z | 16:16:30–16:40:10Z | 1427–1833Z |
+| W of Chile | 21:42:28–22:05:28Z | 22:57:28–23:20:28Z | 2107–0108Z |
+| North Pacific, as flown (T0 12:48:59Z) | 15:35:19–15:57:29Z | | 1427–1833Z |
 
 ## Deorbit burn seen from China (ift14_china_T0_*.png, work/ift14_china.py)
 Zoom 70–140°E, 15–55°N with the map clock at T0+08:53:00 (as requested; the burn is T+08:52:18–08:52:29, 2.8° of
@@ -93,39 +106,42 @@ against a dark or twilight sky.
 
 | T0 | burn UTC / CST | sun at burn point | ship sunlit from | ground in nautical twilight from | ground sunrise from |
 |---|---|---|---|---|---|
-| 12:15Z | 21:07:18Z / 05:07:18 | −44.1° | T+08:59:48, 112.0°E | T+09:00:58, 116.9°E | T+09:03:58, 129.0°E |
-| 12:40Z | 21:32:18Z / 05:32:18 | −39.2° | T+08:58:18, 105.6°E | T+08:59:28, 110.6°E | T+09:02:38, 123.7°E |
-| 13:05Z | 21:57:18Z / 05:57:18 | −34.2° | T+08:56:58, 99.8°E | T+08:58:08, 104.9°E | T+09:01:08, 117.6°E |
-| 13:30Z | 22:22:18Z / 06:22:18 | −29.0° | T+08:55:38, 94.0°E | T+08:56:48, 99.1°E | T+08:59:48, 112.0°E |
+| 12:15Z | 21:07:18Z / 05:07:18 | −43.6° | T+08:59:38, 111.8°E | T+09:00:48, 116.7°E |  |
+| 12:40Z | 21:32:18Z / 05:32:18 | −38.8° | T+08:58:08, 105.4°E | T+08:59:18, 110.4°E |  |
+| 12:46Z | 21:38:18Z / 05:38:18 | −37.6° | T+08:57:48, 103.9°E | T+08:58:58, 108.9°E |  |
+| 13:05Z | 21:57:18Z / 05:57:18 | −33.8° | T+08:56:48, 99.6°E | T+08:57:58, 104.6°E |  |
+| 13:30Z | 22:22:18Z / 06:22:18 | −28.6° | T+08:55:28, 93.8°E | T+08:56:38, 98.9°E |  |
+
+(The planned deorbit over Tibet did not happen on Flight 14, which returned after two orbits.)
 
 ## TLEs (ift14_tles.txt, ift14_tles_alternates.txt, work/ift14_tle.py)
 SGP4 mean elements least-squares fitted to the model track from insertion to the deorbit burn, one per launch time.
 Epoch = insertion burn (T0 + 00:25:28); valid from then until the deorbit burn at T+08:52:18. Same i, n and argument
 of latitude; RAAN advances at the sidereal rate, 6.27° per 25 min of launch delay and 0.986° per day. Fit rms 8.5 km
-(J2 short-period terms), ground track within 0.07° of the model. Refit on 24 Sep against the re-issued warnings:
-elements moved by less than 0.01°, positions by at most 0.54 km. Placeholder catalog numbers 99990–99993
+(J2 short-period terms), ground track within 0.07° of the model. Refit on 29 Sep with the pad-anchored ascent:
+inclination 30.51° → 30.60°, RAAN +0.23°. Placeholder catalog numbers 99990–99993
 (28 Sep) and 99960–99983 (alternates 29 Sep – 4 Oct, four T0 each), designator 26999A, bstar 0.
 
-The TLE inclination (30.51°) and the model's (30.49°) describe the same orbital plane. The model value is the plane
+The TLE inclination (30.60°) and the model's (30.58°) describe the same orbital plane. The model value is the plane
 itself. The TLE carries SGP4 mean elements: SGP4 adds J2 short-period terms that make the osculating inclination
-oscillate by ±0.019° twice per revolution (30.494°–30.531°, mean 30.512°), so the fitted mean value sits 0.019°
-above the plane. Propagated, the TLE reaches the same maximum latitude as the model (30.492°), its best-fit plane is
-30.493°, and it stays within 0.31 km cross-track of the model; the 8.5 km fit rms is almost entirely along-track and
+oscillate by ±0.019° twice per revolution (30.582°–30.620°, mean 30.601°), so the fitted mean value sits 0.019°
+above the plane. Propagated, the TLE reaches the same maximum latitude as the model (30.582°), its best-fit plane is
+30.582°, and it stays within 0.32 km cross-track of the model; the 8.4 km fit rms is almost entirely along-track and
 radial, where the model ignores the J2 short-period motion.
 
 ```
 STARSHIP IFT-14 T0 1215Z 28SEP (zone fit)
 1 99990U 26999A   26271.52810185  .00000000  00000-0  00000+0 0    01
-2 99990  30.5122 330.6861 0000100   0.0000 204.8093 16.01248341    05
+2 99990  30.6009 330.9167 0000100   0.0000 205.0605 16.01243558    09
 STARSHIP IFT-14 T0 1240Z 28SEP (zone fit)
 1 99991U 26999A   26271.54546296  .00000000  00000-0  00000+0 0    03
-2 99991  30.5122 336.9532 0000100   0.0000 204.8093 16.01248341    00
+2 99991  30.6009 337.1838 0000100   0.0000 205.0605 16.01243558    04
 STARSHIP IFT-14 T0 1305Z 28SEP (zone fit)
 1 99992U 26999A   26271.56282407  .00000000  00000-0  00000+0 0    07
-2 99992  30.5122 343.2203 0000100   0.0000 204.8093 16.01248341    07
+2 99992  30.6009 343.4509 0000100   0.0000 205.0605 16.01243558    00
 STARSHIP IFT-14 T0 1330Z 28SEP (zone fit)
 1 99993U 26999A   26271.58018519  .00000000  00000-0  00000+0 0    01
-2 99993  30.5122 349.4875 0000100   0.0000 204.8093 16.01248341    01
+2 99993  30.6009 349.7180 0000100   0.0000 205.0605 16.01243558    05
 ```
 
 ## Maps (ift14_navwarning_map.png, ift14_china_T0_*.png; style in work/ift14_style.py)
@@ -135,19 +151,71 @@ coast (dashed), launch hazard zone. Cyan: orbit, numbered at each descending and
 colour: descents. Hollow square: entry interface. Star: splashdown. Event notes carry T+ only; UTC values for any
 launch time are in the tables above. Illustration: Mickey.
 
-## 3D page (docs/, exported by work/ift14_web_export.py)
-Three.js globe in the Earth-fixed frame with the fitted trajectory (ascent, suborbital coast, six orbits, planned
-descent and both contingencies), hazard zones, launch date and T0 selectors, MET scrubbing and playback, a live
-wall-clock mode, and day, sunrise/sunset and −12° nautical-twilight terminators that follow UTC = T0 + MET.
-The panel checks every zone crossing against its published window for the chosen T0 and generates the TLE for
-that T0. Serve locally with `python3 -m http.server 8000` inside docs/.
-Sky charts use a WGS-84 observer (ellipsoid position, geodetic vertical) and the ship's true geocentric position;
-checked against a rigorous WGS-84 calculation the look angles agree to 0.007° in elevation and 0.02° in azimuth
-(the earlier spherical shortcut was off by up to 0.7°). Sunlight uses an umbra/penumbra model on the WGS-84 Earth;
-the ship marker is a Starship cartoon that glints in sunlight and dims in Earth's shadow.
+## Flight 14 as flown (28 Sep 2026; work/ift14_entry.py, work/ift14_atmo.py)
 
-Clicking a China city (label or dot) opens a SatObserver-MX style sky chart (docs/js/skychart.js): polar alt-az
-view with every Starship pass above 1° for the chosen profile. The track over a city depends only on MET, so it
-is fixed; stars (to mag 4.6), Milky Way, Sun, Moon with phase, the twilight-tinted sky disc and the sunlit or
-eclipsed styling of the track follow UTC = T0 + MET. Each pass chip lists rise time, maximum elevation, direction
-and, for the chosen T0, how long the ship is sunlit, at least 10° up and against a sky darker than civil twilight.
+Reported (Wikipedia, Spaceflight Now, Space.com, Starlust live blogs; splashdown point from the user):
+
+| event | MET | UTC | source |
+|---|---|---|---|
+| liftoff | T+00:00:00 | 12:48:59Z | reported |
+| Raptor Vacuum early shutdown, remaining engines burn longer | ascent | | reported |
+| orbit insertion burn | T+00:25:28–00:25:47 | 13:14:27Z | reported as planned |
+| orbit ≈275 km; webcast 276 km, 26,370 km/h | | | livestream (user) |
+| 26 Starlink V3 deployed | T+00:34:18–01:04:50 | | reported |
+| deorbit burn, one sea-level Raptor | T+02:12:00–02:12:11 | 15:00:59Z | reported |
+| entry | ≈T+02:47 | ≈15:36Z | reported |
+| splashdown, hard, north of Hawaii | T+03:08:30 | 15:57:29Z | reported; 25.499295°N 155.427536°W |
+
+The webcast readout fits the model orbit: it reads 276 km above WGS-84 and 26,370 km/h relative to the Earth
+wherever the ship is at 9–15° latitude (the orbit spans 275.0–280.6 km and 26,361–26,376 km/h).
+
+Entry reconstruction: 3-DOF point mass in the rotating Earth frame from the deorbit burn to splashdown; WGS-84
+ellipsoid, J2 gravity, US Standard Atmosphere 1976 (checked to 4 decimals against the tables), finite 11 s retrograde
+burn, belly-first aerodynamics from modified Newtonian theory (L/D = cot α, C_D ∝ sin³α) with the angle of attack
+rising to the 90° belly flop below Mach 6, a transonic drag peak and supercritical crossflow drag subsonic, constant
+bank toward the south, and the 19 s landing burn. Four unknowns solved so the flight hits the reported splashdown
+point and time and the planned 2:04 from subsonic to landing-burn start; both solver starts converge to the same
+answer, miss 0 km and 0 s:
+
+| quantity | solved value | implication |
+|---|---|---|
+| deorbit Δv | 69.6 m/s | one Raptor at about 30 % thrust for 11 s on a 130 t ship |
+| hypersonic angle of attack | 55.1° (L/D 0.70) | |
+| ballistic coefficient | 331 kg/m² hypersonic, 472 subsonic | about 114 t at entry (9 × 52 m planform), belly-flop C_D ≈ 0.5, 313 km/h near sea level |
+| bank | 19.4° toward the south, no reversal | the target lies 395 km south of the ground track, in the southern lobe of the North Pacific zone |
+
+| reconstructed event | MET | where |
+|---|---|---|
+| deorbit burn | T+02:12:00–02:12:11 | 30.7°S 19.0°E |
+| 120 km | T+02:38:23 | 9.6°N 116.0°E, Mach 19.6 |
+| reported "entry" | T+02:46:52 | 81.5 km, 25,770 km/h, entering the North Pacific zone |
+| peak heating | T+02:53:25 | 72 km, Mach 22.4 |
+| maximum deceleration | T+03:04:35 | 1.7 g |
+| transonic / subsonic | T+03:05:55 / 03:06:08 | |
+| landing burn | T+03:08:11 | |
+| splashdown | T+03:08:30 | 25.4993°N 155.4275°W |
+
+Lighting: the deorbit burn was in daylight over the South Atlantic; the ship entered Earth's shadow during the coast,
+so entry and peak heating were in darkness; it came back into sunlight at about 45 km in the final five minutes and
+splashed down in civil twilight (Sun −4.3°, 05:57 HST).
+The ascent is still the nominal one; the extended burn after the engine loss is not modelled.
+
+## 3D page (docs/, exported by work/ift14_web_export.py)
+Three.js globe in the Earth-fixed frame with four profiles: planned (6 orbits, Chile), Flight 14 as flown (2 orbits,
+aerodynamic entry to the reported splashdown), and the two model contingencies. Only the selected profile's path is
+drawn. Choosing the flown profile sets 28 Sep, T0 12:48:59Z (also a preset button). Hazard zones, launch date and T0
+selectors, MET scrubbing and playback, a live wall-clock mode, and day, sunrise/sunset and −12° nautical-twilight
+terminators that follow UTC = T0 + MET. The panel checks every zone crossing against its published window for the
+chosen T0 and profile and generates the TLE for that T0. Status shows height above WGS-84 and speed relative to the
+Earth (as on the webcast) and inertial. Serve locally with `python3 -m http.server 8000` inside docs/.
+Every track carries geodetic latitude, longitude and height above WGS-84; the page draws them on the textured globe
+and uses the exact WGS-84 positions for look angles, sunlight and speed (checked against Python to 1e-12°).
+Sunlight uses an umbra/penumbra model on the WGS-84 Earth; the ship marker is a Starship cartoon that glints in
+sunlight and dims in Earth's shadow.
+
+Clicking a China city (label or dot), or entering coordinates, opens a SatObserver-MX style sky chart
+(docs/js/skychart.js): polar alt-az view with every Starship pass above 1° for the chosen profile. The track over a
+site depends only on MET, so it is fixed; stars (to mag 4.6), Milky Way, Sun, Moon with phase, the twilight-tinted
+sky disc and the sunlit or eclipsed styling of the track follow UTC = T0 + MET. Each pass chip lists rise time,
+maximum elevation, direction and, for the chosen T0, how long the ship is sunlit, at least 10° up and against a sky
+darker than civil twilight.
