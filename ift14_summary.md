@@ -207,6 +207,94 @@ so entry and peak heating were in darkness; it came back into sunlight at about 
 splashed down in civil twilight (Sun −4.3°, 05:57 HST).
 The ascent is still the nominal one; the extended burn after the engine loss is not modelled.
 
+## Ascent and descent profiles: how they are built
+
+In short: only the two ends of the ascent are physical. It starts at rest on the pad and meets a physically
+computed coast at engine cutoff (SECO). The descent is a physics simulation solved to match every reported fact
+about Flight 14.
+
+### Ascent (work/ift14_fit.py, Plane.nominal and alt_nominal)
+- Ground path: a cubic Hermite curve on the sphere from Starbase to the SECO point, matching the SECO position and
+  Earth-fixed velocity. It starts with zero ground velocity. The orbital plane sits about 60 km from the pad, so this
+  curve is also the small sideways steer into the plane.
+- Height: h = 150 km × (1 − (1 − t/T_SECO)²), rising from 0 to 150 km at SECO (T+00:08:11, 15° of arc ≈ 1,670 km
+  downrange). SECO height and downrange are assumptions, not reported values.
+- Coast: from SECO a Kepler ellipse, apogee 275 km and perigee −99 km (e = 0.029). It leaves SECO climbing at a
+  1.6° flight-path angle and covers 69° of arc in 17.3 min.
+- Insertion: at apogee, T+00:25:28, a 19 s burn adds 113 m/s (7,627 → 7,740 m/s) for a 275 km circular orbit.
+
+| time | height | ground speed | climb rate |
+|---|---|---|---|
+| T+00:01:00 | 34 km | 3,421 km/h | +536 m/s |
+| T+00:04:00 | 111 km | 11,885 km/h | +312 m/s |
+| T+00:08:00 | 150 km | 25,781 km/h | +14 m/s |
+| just after SECO | 150 km | 26,490 km/h | +170 m/s |
+| T+00:16:00 | 234 km | 26,122 km/h | +138 m/s |
+| T+00:25:27 | 275 km | 26,035 km/h | 0 |
+
+Limitations of the ascent:
+- Too fast early: a real Starship is near 12 km and about 1,500 km/h at Max Q (T+00:58); the model is at 34 km and
+  3,400 km/h.
+- Climb-rate jump at SECO: the height curve arrives level, but the coast leaves climbing at 170 m/s.
+- The longer burn after the Raptor Vacuum shutdown on Flight 14 is not modelled.
+None of this affects the orbit or the descents; it only changes how the first 8 minutes look. A gravity-turn ascent
+tuned to Max Q (T+00:58), MECO (T+02:20) and SECO (T+08:11) would remove the early excess and the jump at SECO.
+
+### Descent (work/ift14_entry.py, work/ift14_descents.py, work/ift14_atmo.py)
+A 3-degree-of-freedom (point-mass) simulation from the start of the deorbit burn to splashdown:
+- Earth and gravity: rotating WGS-84 Earth, J2 gravity, Coriolis and centrifugal terms.
+- Burn: 11 s retrograde thrust in the inertial frame.
+- Air: US Standard Atmosphere 1976, rotating with the Earth (checked to 4 decimals against the tables).
+- Aerodynamics: belly-first body, modified Newtonian theory (L/D = cot α, C_D ∝ sin³ α). Angle of attack 55° above
+  Mach 6 (L/D 0.70), 82° at Mach 1.5, lift-free 90° belly flop at Mach 0.8; transonic drag peak; broadside
+  cylinder drag below Mach 1 lower than hypersonic (supercritical Reynolds number, about 6×10⁷).
+- Steering: constant bank of 19.4° to the south, faded out between Mach 3 and Mach 1.5.
+- Landing burn: 19 s, linear deceleration to rest at the surface.
+
+How it is determined: a least-squares solver chose four unknowns to satisfy four facts about Flight 14. The four are
+coupled, so they are fitted together; two independent starting guesses converged to the same answer with zero miss.
+
+| unknown | solved value | constraint it mainly satisfies |
+|---|---|---|
+| deorbit Δv | 69.6 m/s | splashdown time T+03:08:30 |
+| ballistic coefficient | 331 kg/m² | 2:04 from subsonic to landing burn (planned sequence) |
+| bank angle | 19.4° to the south | splashdown latitude, 395 km south of the ground track |
+| angle of attack | 55° | splashdown longitude (glide range) |
+
+The planned and contingency descents reuse this vehicle; the planned one only re-solves the burn (68.8 m/s).
+
+Descent rate along the flown entry:
+
+| moment | time | height | speed | sink rate | path angle | deceleration |
+|---|---|---|---|---|---|---|
+| burn end | T+02:12:11 | 280 km | 26,111 km/h | 1 m/s | 0.0° | 0 |
+| coast | T+02:32:00 | 174 km | 26,589 km/h | 142 m/s | −1.1° | 0 |
+| 120 km | T+02:38:23 | 120 km | 26,834 km/h | 140 m/s | −1.1° | 0 |
+| first dip | T+02:45:15 | 79.0 km | 26,299 km/h | 7 m/s | 0.0° | 0.22 g |
+| reported entry | T+02:46:52 | 81.5 km | 25,770 km/h | climbing 34 m/s | +0.3° | 0.14 g |
+| peak heating | T+02:53:25 | 71.8 km | 23,702 km/h | 28 m/s | −0.2° | 0.52 g |
+| Mach 10 | T+03:01:49 | 53.2 km | 11,730 km/h | 69 m/s | −1.2° | 1.40 g |
+| Mach 5 | T+03:04:11 | 41.8 km | 5,721 km/h | 100 m/s | −3.6° | 1.67 g |
+| Mach 2 | T+03:05:23 | 30.6 km | 2,132 km/h | 216 m/s | −21° | 1.56 g |
+| Mach 1.2 | T+03:05:55 | 22.9 km | 1,274 km/h | 258 m/s | −47° | 1.25 g |
+| Mach 0.5 | T+03:07:01 | 9.0 km | 544 km/h | 151 m/s | −87° | 1.16 g |
+| landing burn | T+03:08:11 | 0.9 km | 334 km/h | 93 m/s | −90° | 1.04 g |
+
+The descent has four regimes:
+1. Coast, 26 min: gravity alone; the sink rate grows to about 140 m/s.
+2. Hypersonic glide, about 18 min: lift holds the ship between 72 and 85 km while it sheds speed. The sink rate
+   stays under 30 m/s and the ship even climbs back 6 km after the first dip. The constant bank causes that skip;
+   real guidance varies the bank and would give a smoother path.
+3. Steep dive, about 4 min: from Mach 10 lift can no longer carry the weight. The path steepens to vertical and the
+   sink rate peaks at about 260 m/s near 23 km, with a maximum of 1.7 g.
+4. Belly flop, about 2 min: the thickening air slows the fall toward terminal speed, 151 m/s at 9 km and 93 m/s at
+   the landing burn. The burn then removes the last 93 m/s over about 880 m.
+
+How far to trust it: the descent reproduces every reported Flight 14 time and the exact splashdown point, and the
+planned landing it predicts falls inside the Chile zone and goes subsonic within 1 s of the official time. Its
+individual numbers, such as the glide heights and the angle of attack, are the solver's best consistent answer, not
+measurements.
+
 ## 3D page (docs/, exported by work/ift14_web_export.py)
 Three.js globe in the Earth-fixed frame with four profiles: planned (6 orbits, Chile), Flight 14 as flown (2 orbits,
 aerodynamic entry to the reported splashdown), the North Pacific contingency (the same path, any launch time) and the
